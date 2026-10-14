@@ -63,6 +63,7 @@ const renderStudentView = async (req, res, viewName, pageTitle) => {
 // ==========================================
 
 const getStudentDashboard = async (req, res) => {
+  console.log("student:", req.user)
   try {
     const studentId = req.user.id;
     const getStudent = await studentModel.getStudentById(studentId);
@@ -300,7 +301,7 @@ const changePassword = async (req, res) => {
     console.error("[studentController] Error in changePassword:", error);
     return res.status(500).json({
       success: false,
-      message: "An unexpected error occurred while updating your password. Please try again.",
+      message: "An unexpected error occurred while up dating your password. Please try again.",
     });
   }
 };

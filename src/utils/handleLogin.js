@@ -1,13 +1,27 @@
+
 const createToken = require("./createToken");
 const bcrypt = require("bcrypt");
 
 /**
- * Handles login for any user role in API mode.
- * Sets the authentication cookie and returns a JSON response.
+ * Handles login for students, staff, and admins.
+ * Verifies credentials, creates a JWT, and sets an
+ * HTTP-only authentication cookie.
  */
-async function handleLogin(identifier, password, role, model, idField, res) {
+async function handleLogin(
+  identifier,
+  password,
+  role,
+  model,
+  idField,
+  res
+) {
   // 1. Validate required fields
-  if (!identifier || !password) {
+  if (
+    typeof identifier !== "string" ||
+    !identifier.trim() ||
+    typeof password !== "string" ||
+    !password
+  ) {
     return res.status(400).json({
       success: false,
       message: "Please fill in all fields before signing in.",
@@ -15,62 +29,82 @@ async function handleLogin(identifier, password, role, model, idField, res) {
   }
 
   try {
-    // 2. Look up user by identifier
-    const userData = await model(identifier);
+    // 2. Retrieve the user account
+    const userData = await model(identifier.trim());
 
-    if (!userData || userData.length === 0) {
+    if (!Array.isArray(userData) || userData.length === 0) {
       return res.status(401).json({
         success: false,
-        message: `No ${role.toLowerCase()} account was found with that ID. Please check and try again.`,
+        message: "Invalid credentials. Please check and try again.",
       });
     }
 
     const user = userData[0];
 
-    // 3. Verify password
-    const isMatch = await bcrypt.compare(password, user.password);
+    // 3. Verify the password
+    if (
+      typeof user.password !== "string" ||
+      !user.password
+    ) {
+      throw new Error(
+        `Password hash is missing for role "${role}".`
+      );
+    }
+
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
 
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Incorrect password. Please try again or contact your administrator.",
+        message: "Invalid credentials. Please check and try again.",
       });
     }
 
-    // 4. Create JWT token
-    const payload = {
-      id: user[idField],
-      role,
-    };
-    
-    const token = createToken(payload);
+    // 4. Validate the user ID
+    const userId = user[idField];
 
-    // 5. Set secure cookie
+    if (userId === undefined || userId === null) {
+      throw new Error(
+        `Missing ID field "${idField}" for role "${role}".`
+      );
+    }
+
+    // 5. Create the JWT
+    const token = createToken({
+      id: userId,
+      role,
+    });
+
+    // 6. Set the authentication cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 30 * 60 * 1000, // 30 minutes
+      path: "/",
     });
 
-    // 6. Return JSON response for API consumers
-    return res.json({
+    // 7. Return a successful response
+    return res.status(200).json({
       success: true,
       message: "Authentication successful.",
-      token,
       role,
       user: {
-        id: user[idField],
-        admission_number: user.admission_number,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        id: userId,
       },
     });
   } catch (error) {
-    console.error(`[handleLogin] Unexpected error for role "${role}":`, error);
+    console.error(
+      `[handleLogin] Unexpected error for role "${role}":`,
+      error
+    );
+
     return res.status(500).json({
       success: false,
-      message: "A server error occurred. Please try again in a moment.",
+      message: "A server error occurred. Please try again.",
     });
   }
 }

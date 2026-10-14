@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node scripts/test_models.js"
+    "test": "node scripts/test_models.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
@@ -24,5 +25,8 @@
     "multer": "^2.1.1",
     "mysql2": "^3.22.3",
     "uuid": "^14.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

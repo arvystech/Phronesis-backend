@@ -18,6 +18,18 @@ function getStudentByAdmissionNumber(admissionNumber) {
   });
 }
 
+function getAdminByEmail(email) {
+  return new Promise((resolve, reject) => {
+    connection.query(
+      `SELECT * FROM admin WHERE email = ?`,
+      [email], (err, admin) => {
+        if (err) return reject(err)
+        resolve(admin)
+      }
+    )
+  })
+}
+
 module.exports = {
-  getStudentByAdmissionNumber,
+  getStudentByAdmissionNumber, getAdminByEmail
 };

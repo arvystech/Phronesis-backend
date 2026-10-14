@@ -1,6 +1,9 @@
 const authModel = require("./auth.model");
 const handleLogin = require("../../utils/handleLogin");
 
+
+/////////// STUDENT ////////////
+
 // Student login endpoint information
 const getStudentLogin = (req, res) => {
   res.json({
@@ -33,4 +36,30 @@ const getStudentLogout = (req, res) => {
   });
 };
 
-module.exports = { getStudentLogin, postStudentLogin, getStudentLogout };
+
+///////////// ADMIN ////////////////
+
+//getAdmin Login
+const getAdminLogin = (req, res) => {
+  return res.json({
+    success: true,
+    message: "Admin Authentication EndPOint reached. Submit Post request with edmin email and password",
+    csrfToken: res.locals.csrfToken || null
+  })
+}
+
+//Post Admin Login
+const postAdminLogin = (req, res) => {
+  const { email, password } = req.body || {};
+
+  handleLogin(
+    email,
+    password,
+    "admin",
+    authModel.getAdminByEmail,
+    "admin_id",
+    res
+  );
+};
+
+module.exports = { getStudentLogin, postStudentLogin, getStudentLogout, getAdminLogin, postAdminLogin };

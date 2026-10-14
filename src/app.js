@@ -12,6 +12,7 @@ require("./config/dbConnection");
 // Import Feature Routes
 const authRoutes = require("./modules/auth/auth.routes");
 const studentRoutes = require("./modules/students/student.routes");
+const adminRoutes = require("./modules/admin/admin.route")
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.get("/admission-info", (req, res) => {
 // Mount Modular Feature Routes
 app.use(authRoutes);
 app.use(studentRoutes);
+app.use(adminRoutes)
 
 // ─── 404 API Handler
 app.use((req, res) => {
