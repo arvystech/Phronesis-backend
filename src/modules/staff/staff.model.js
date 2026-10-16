@@ -47,6 +47,13 @@ function getStaffById(id) {
     });
 }
 
+function getAllStaff() {
+    return new Promise((resolve, reject) => {
+        connection.query(`SELECT * FROM staff`, (err, rows) => {
+            if (err) reject(err)
+            resolve(rows)
+        })
+    })
+}
 
-
-module.exports = { createStaff, getStaffById};
+module.exports = { createStaff, getStaffById, getAllStaff };

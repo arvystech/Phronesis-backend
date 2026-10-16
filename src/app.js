@@ -13,6 +13,7 @@ require("./config/dbConnection");
 const authRoutes = require("./modules/auth/auth.routes");
 const studentRoutes = require("./modules/students/student.routes");
 const adminRoutes = require("./modules/admin/admin.route")
+const staffRoutes = require("./modules/staff/staff.route")
 
 const app = express();
 
@@ -78,6 +79,8 @@ app.get("/admission-info", (req, res) => {
 app.use(authRoutes);
 app.use(studentRoutes);
 app.use(adminRoutes)
+app.use(staffRoutes)
+
 
 // ─── 404 API Handler
 app.use((req, res) => {

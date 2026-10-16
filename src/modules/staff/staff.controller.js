@@ -1,4 +1,4 @@
-const { createStaff, getStaffById } = require("../staff/staff.model")
+const { createStaff, getStaffById, getAllStaff } = require("../staff/staff.model")
 const { validateCreateStaff } = require("../../validators/staffValidator")
 
 
@@ -28,5 +28,12 @@ async function addStaff(req, res) {
     }
 }
 
+const getStaff = async (req, res) => {
+    try {
+        const staff = await getAllStaff()
+        return res.status(200).json({ staff })
+    } catch (error) {
 
-module.exports = { addStaff };
+    }
+}
+module.exports = { addStaff, getStaff };
