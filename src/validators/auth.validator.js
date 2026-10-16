@@ -8,15 +8,21 @@ const validatePasswordComplexity = (password) => {
   return passwordRegex.test(password);
 };
 
-const validateLoginInput = (identifier, password) => {
-  if (!identifier || !password) {
+function validateLoginInput(identifier, password) {
+  if (
+    typeof identifier !== "string" ||
+    identifier.trim() === "" ||
+    typeof password !== "string" ||
+    password.length === 0
+  ) {
     return {
       isValid: false,
-      message: "Please fill in all fields before signing in.",
+      message: "Please provide a valid identifier and password.",
     };
   }
+
   return { isValid: true };
-};
+}
 
 const validateChangePasswordInput = (currentPassword, newPassword, confirmPassword) => {
   if (!currentPassword || !newPassword || !confirmPassword) {
