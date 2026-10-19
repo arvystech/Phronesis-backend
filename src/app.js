@@ -4,7 +4,8 @@ require("dotenv").config(); // fallback
 
 const express = require("express");
 const cookieParser = require("cookie-parser");
-const csrf = require("@dr.pogodin/csurf");
+const csurf = require("@dr.pogodin/csurf");
+const csrf = typeof csurf === "function" ? csurf : (csurf && csurf.default ? csurf.default : csurf);
 
 // Initialize Database Connection
 require("./config/dbConnection");

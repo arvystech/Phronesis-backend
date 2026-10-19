@@ -43,7 +43,7 @@ const getStudentLogout = (req, res) => {
 const getAdminLogin = (req, res) => {
   return res.json({
     success: true,
-    message: "Admin Authentication EndPOint reached. Submit Post request with edmin email and password",
+    message: "Admin Authentication Endpoint reached. Submit Post request with edmin email and password",
     csrfToken: res.locals.csrfToken || null
   })
 }
