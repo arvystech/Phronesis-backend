@@ -95,6 +95,7 @@ async function handleLogin(
       user: {
         id: userId,
       },
+      token,
     });
   } catch (error) {
     console.error(

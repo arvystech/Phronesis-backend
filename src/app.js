@@ -26,16 +26,36 @@ app.use(cookieParser());
 // Serve uploaded media (profile pictures, etc.)
 app.use("/uploads", express.static(path.join(__dirname, "../frontend/uploads")));
 
+const swaggerUi = require("swagger-ui-express");
+const { swaggerSpec, swaggerUiOptions } = require("./config/swagger");
+
 // CSRF Protection (Cookie-based)
-app.use(
-  csrf({
-    cookie: {
-      httpOnly: true,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-    },
-  })
-);
+const csrfMiddleware = csrf({
+  cookie: {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  },
+});
+
+app.use((req, res, next) => {
+  // Bypass CSRF for Swagger documentation, Swagger UI testing, and Bearer-authenticated API calls
+  const isSwagger = req.path.startsWith("/api-docs") || req.headers["x-swagger-request"] === "true";
+  const isBearerAuth = req.headers.authorization && req.headers.authorization.startsWith("Bearer ");
+
+  if (isSwagger || isBearerAuth) {
+    return next();
+  }
+
+  csrfMiddleware(req, res, next);
+});
+
+// Swagger API Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+app.get("/api-docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
 
 // Expose CSRF token in response header / locals
 app.use((req, res, next) => {
