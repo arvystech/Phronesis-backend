@@ -6,6 +6,7 @@ const express = require("express");
 const router = express.Router();
 const verifyRole = require("../../middlewares/verifyRole");
 const { requireAuth } = require("../../middlewares/verifyToken");
+const idempotency = require("../../middlewares/idempotency");
 
 router.use("/admin", requireAuth, verifyRole("admin"));
 
@@ -14,5 +15,5 @@ router
     .get(adminController.getAdminDashboard)
 
 router
-    .post("/admin/add-staff", addStaff)
+    .post("/admin/add-staff", idempotency(), addStaff)
 module.exports = router;

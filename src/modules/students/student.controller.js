@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcrypt");
 const studentModel = require("./student.model");
+const connection = require("../../config/dbConnection");
 const upload = require("../../middlewares/multer");
 const { formatTime, formatTimetableEntries } = require("../../utils/formatTimetable");
 
@@ -177,8 +178,9 @@ const getStudentProfile = async (req, res) => {
 // Handle student profile image upload
 const uploadSingle = upload.single("profile_pic");
 
-const uploadProfilePic = (req, res) => {
-  uploadSingle(req, res, async (err) => {
+// Middleware to handle multer file reception and error handling before idempotency checks
+const handleProfilePicUpload = (req, res, next) => {
+  uploadSingle(req, res, (err) => {
     if (err) {
       let message = "An error occurred during file upload.";
       if (err.code === "LIMIT_FILE_SIZE") {
@@ -188,42 +190,90 @@ const uploadProfilePic = (req, res) => {
       }
       return res.status(400).json({ success: false, message });
     }
+    next();
+  });
+};
 
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file was selected." });
-    }
+const executeUploadProfilePic = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No file was selected." });
+  }
 
-    try {
-      const studentId = req.user.id;
-      const newFilename = req.file.filename;
+  try {
+    const studentId = req.user.id;
+    const newFilename = req.file.filename;
 
-      const getStudent = await studentModel.getStudentById(studentId);
-      const student = getStudent[0];
-      const oldProfilePic = student ? student.profile_pic : null;
+    // Use connection.withTransaction with FOR UPDATE row lock to serialize concurrent uploads for this student
+    const { oldProfilePic } = await connection.withTransaction(async (conn) => {
+      const [rows] = await conn.query(
+        "SELECT profile_pic FROM students WHERE student_id = ? FOR UPDATE",
+        [studentId]
+      );
 
-      await studentModel.updateStudentProfilePic(studentId, newFilename);
-
-      if (oldProfilePic) {
-        const oldPath = path.resolve(__dirname, "../../../frontend/uploads", oldProfilePic);
-        fs.unlink(oldPath, (unlinkErr) => {
-          if (unlinkErr && unlinkErr.code !== "ENOENT") {
-            console.error("[studentController] Failed to delete old profile picture:", unlinkErr);
-          }
-        });
+      if (!rows || rows.length === 0) {
+        const notFoundErr = new Error("Student account not found.");
+        notFoundErr.statusCode = 404;
+        throw notFoundErr;
       }
 
-      return res.json({
-        success: true,
-        message: "Profile picture updated successfully.",
-        filePath: `/uploads/${newFilename}`,
-      });
-    } catch (dbErr) {
-      console.error("[studentController] Database error updating profile pic:", dbErr);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to save profile picture in the database.",
+      const oldPic = rows[0].profile_pic;
+
+      await conn.query(
+        "UPDATE students SET profile_pic = ? WHERE student_id = ?",
+        [newFilename, studentId]
+      );
+
+      return { oldProfilePic: oldPic };
+    });
+
+    // Safely remove the replaced old picture if one existed
+    if (oldProfilePic && oldProfilePic !== "NULL" && oldProfilePic !== newFilename) {
+      const oldPath = path.resolve(__dirname, "../../../frontend/uploads", oldProfilePic);
+      fs.unlink(oldPath, (unlinkErr) => {
+        if (unlinkErr && unlinkErr.code !== "ENOENT") {
+          console.error("[studentController] Failed to delete old profile picture:", unlinkErr);
+        }
       });
     }
+
+    return res.json({
+      success: true,
+      message: "Profile picture updated successfully.",
+      filePath: `/uploads/${newFilename}`,
+    });
+  } catch (dbErr) {
+    // CRITICAL: Clean up newly uploaded file on database failure so no orphaned files remain on disk
+    if (req.file && req.file.path) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    if (dbErr.statusCode === 404) {
+      return res.status(404).json({ success: false, message: dbErr.message });
+    }
+
+    console.error("[studentController] Database error updating profile pic:", dbErr);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save profile picture in the database.",
+    });
+  }
+};
+
+const uploadProfilePic = (req, res) => {
+  if (req.file) {
+    return executeUploadProfilePic(req, res);
+  }
+  uploadSingle(req, res, (err) => {
+    if (err) {
+      let message = "An error occurred during file upload.";
+      if (err.code === "LIMIT_FILE_SIZE") {
+        message = "File is too large. Maximum size allowed is 5MB.";
+      } else if (err.code === "INVALID_FILE_TYPE") {
+        message = err.message;
+      }
+      return res.status(400).json({ success: false, message });
+    }
+    return executeUploadProfilePic(req, res);
   });
 };
 
@@ -287,9 +337,22 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // 7. Hash new password & update database
+    // 7. Hash new password & update database with optimistic concurrency control (Compare-and-Swap)
     const newHashedPassword = await bcrypt.hash(newPassword, 12);
-    await studentModel.updateStudentPassword(studentId, newHashedPassword);
+    const updateResult = await studentModel.updateStudentPassword(
+      studentId,
+      newHashedPassword,
+      student.password
+    );
+
+    if (updateResult && updateResult.affectedRows === 0) {
+      return res.status(409).json({
+        success: false,
+        statusCode: 409,
+        title: "Concurrent Modification",
+        message: "Your password was modified concurrently in another session. Please refresh and try again.",
+      });
+    }
 
     // 8. Invalidate session / cookie
     res.clearCookie("token");
@@ -301,7 +364,7 @@ const changePassword = async (req, res) => {
     console.error("[studentController] Error in changePassword:", error);
     return res.status(500).json({
       success: false,
-      message: "An unexpected error occurred while up dating your password. Please try again.",
+      message: "An unexpected error occurred while updating your password. Please try again.",
     });
   }
 };
@@ -640,6 +703,7 @@ module.exports = {
   getStudentDashboard,
   getStudentSettings,
   getStudentProfile,
+  handleProfilePicUpload,
   uploadProfilePic,
   changePassword,
 

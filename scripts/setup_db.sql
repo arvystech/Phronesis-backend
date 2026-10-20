@@ -6,6 +6,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1. Drop existing tables in reverse dependency order
+DROP TABLE IF EXISTS idempotency_keys;
 DROP TABLE IF EXISTS student_payments;
 DROP TABLE IF EXISTS student_assessments;
 DROP TABLE IF EXISTS assessments;
@@ -213,7 +214,8 @@ CREATE TABLE student_payments (
   status ENUM('Paid', 'Partial', 'Pending') NOT NULL DEFAULT 'Paid',
   FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
   FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
-  FOREIGN KEY (term_id) REFERENCES terms(term_id) ON DELETE CASCADE
+  FOREIGN KEY (term_id) REFERENCES terms(term_id) ON DELETE CASCADE,
+  UNIQUE KEY uq_payment_trx_ref (transaction_ref)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 16. Create 'announcements' table
@@ -224,6 +226,25 @@ CREATE TABLE announcements (
   category VARCHAR(50) DEFAULT 'General',
   publish_date DATE NOT NULL,
   author VARCHAR(100) DEFAULT 'School Admin'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 17. Create 'idempotency_keys' table (for API idempotency and race condition prevention)
+CREATE TABLE idempotency_keys (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  idempotency_key VARCHAR(255) NOT NULL,
+  user_id VARCHAR(100) DEFAULT NULL,
+  route VARCHAR(255) NOT NULL,
+  request_hash VARCHAR(64) NOT NULL,
+  status ENUM('processing', 'completed', 'failed') NOT NULL DEFAULT 'processing',
+  response_status INT DEFAULT NULL,
+  response_headers JSON DEFAULT NULL,
+  response_body LONGTEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uq_idempotency_key (idempotency_key),
+  INDEX idx_idempotency_user_route (user_id, route),
+  INDEX idx_idempotency_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 

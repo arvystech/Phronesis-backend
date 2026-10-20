@@ -30,7 +30,10 @@ async function addStaff(req, res) {
 const getStaff = async (req, res) => {
     try {
         const staff = await getAllStaff()
-        return res.status(200).json({ staff })
+        return res.status(200).json({
+            success: true,
+            staff
+        })
     } catch (err) {
         console.log(err)
         return res.status(500).json({ message: "Something went wrong" })

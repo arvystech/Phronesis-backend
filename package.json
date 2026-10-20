@@ -5,7 +5,10 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node scripts/test_models.js",
+    "test": "node scripts/test_models.js && node scripts/test_concurrency_and_idempotency.js",
+    "test:models": "node scripts/test_models.js",
+    "test:concurrency": "node scripts/test_concurrency_and_idempotency.js",
+    "migrate:idempotency": "node scripts/migrate_idempotency_and_concurrency.js",
     "dev": "nodemon server.js"
   },
   "keywords": [],

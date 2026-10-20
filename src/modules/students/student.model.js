@@ -101,17 +101,23 @@ function updateStudentProfilePic(studentId, profilePic) {
   });
 }
 
-// Update student password and set is_default_password to 0
-function updateStudentPassword(studentId, newHashedPassword) {
+// Update student password and set is_default_password to 0.
+// If expectedOldPassword is provided, atomically verifies that the password
+// has not changed concurrently before applying the update (Optimistic Concurrency Control).
+function updateStudentPassword(studentId, newHashedPassword, expectedOldPassword = null) {
   return new Promise((resolve, reject) => {
-    connection.query(
-      `UPDATE students SET password = ?, is_default_password = 0 WHERE student_id = ?`,
-      [newHashedPassword, studentId],
-      (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      }
-    );
+    let sql = `UPDATE students SET password = ?, is_default_password = 0 WHERE student_id = ?`;
+    const params = [newHashedPassword, studentId];
+
+    if (expectedOldPassword) {
+      sql += ` AND password = ?`;
+      params.push(expectedOldPassword);
+    }
+
+    connection.query(sql, params, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
   });
 }
 
