@@ -3,6 +3,7 @@ require("dotenv").config({ path: path.join(__dirname, "../.env") });
 require("dotenv").config(); // fallback
 
 const express = require("express");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const csurf = require("@dr.pogodin/csurf");
 const csrf = typeof csurf === "function" ? csurf : (csurf && csurf.default ? csurf.default : csurf);
@@ -17,6 +18,32 @@ const adminRoutes = require("./modules/admin/admin.route")
 const staffRoutes = require("./modules/staff/staff.route")
 
 const app = express();
+
+// Cross-Origin Resource Sharing (CORS) - Allow incoming requests from any origin
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+      "CSRF-Token",
+      "Idempotency-Key",
+      "x-idempotency-key",
+      "x-swagger-request",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: [
+      "X-CSRF-Token",
+      "X-Refreshed-Token",
+      "Idempotent-Replayed",
+    ],
+    optionsSuccessStatus: 204,
+  })
+);
 
 // Middleware
 app.use(express.json());
