@@ -1,6 +1,6 @@
 const connection = require("../../config/dbConnection");
 
-function createStaff(staffData) {
+const createStaff = async (staffData) => {
 
 
     const {
@@ -14,46 +14,46 @@ function createStaff(staffData) {
         department,
     } = staffData;
 
-    return new Promise((resolve, reject) => {
-        connection.query(
-            `INSERT INTO staff
+    const [result] = await connection.query(
+        `INSERT INTO staff
                 (staff_no, first_name, last_name, other_names,
                  biometric_enrollment_no, email, phone, department)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                staff_no,
-                first_name,
-                last_name,
-                other_names,
-                biometric_enrollment_no,
-                email,
-                phone,
-                department,
-            ],
-            (err, result) => {
-                if (err) return reject(err);
-                resolve(result.insertId);
-            },
-        );
-    });
+        [
+            staff_no,
+            first_name,
+            last_name,
+            other_names,
+            biometric_enrollment_no,
+            email,
+            phone,
+            department,
+        ]
+    );
+    return result.insertId;
 }
 
-function getStaffById(id) {
-    return new Promise((resolve, reject) => {
-        connection.query(`SELECT * FROM staff WHERE id = ?`, [id], (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows[0] || null);
-        });
-    });
+const getStaffById = async (id) => {
+    const [rows] = await connection.query(`SELECT * FROM staff WHERE id = ?`, [id])
+    return rows[0] || null
 }
 
-function getAllStaff() {
-    return new Promise((resolve, reject) => {
-        connection.query(`SELECT * FROM staff`, (err, rows) => {
-            if (err) reject(err)
-            resolve(rows)
-        })
-    })
+const getAllStaff = async () => {
+    const [rows] = await connection.query(`SELECT * FROM staff`)
+    return rows
 }
 
-module.exports = { createStaff, getStaffById, getAllStaff };
+const getStaffAttendance = async () => {
+    try {
+        const [rows] = await connection.query(`SELECT ba.*, s.first_name, s.last_name, 
+            s.email, s.phone, s.department 
+            FROM biometric_attendance ba
+            JOIN staff s
+            ON ba.staff_id = s.id`)
+        return rows
+    } catch (error) {
+        console.error("[admin.model] Error in getStaffAttendance:", error);
+        return null;
+    }
+}
+module.exports = { createStaff, getStaffById, getAllStaff, getStaffAttendance };

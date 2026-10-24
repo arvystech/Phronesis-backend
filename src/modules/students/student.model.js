@@ -21,37 +21,31 @@ async function addStudent(
     const hashedPassword = await bcrypt.hash(rawPassword, 12);
     const isDefaultPassword = rawPassword === (process.env.DEFAULT_STUDENT_PASSWORD || "Password123") ? 1 : 0;
 
-    return new Promise((resolve, reject) => {
-      connection.query(
-        `INSERT INTO students(admission_number, first_name, middle_name, last_name, password, gender, date_of_birth, class_id, profile_pic, is_default_password) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-        [
-          admissionNumber,
-          firstName,
-          middleName,
-          lastName,
-          hashedPassword,
-          gender,
-          dateOfBirth,
-          classId,
-          profilePic,
-          isDefaultPassword,
-        ],
-        (err, student) => {
-          if (err) return reject(err);
-          resolve(student);
-        }
-      );
-    });
+    const [result] = await connection.query(
+      `INSERT INTO students(admission_number, first_name, middle_name, last_name, password, gender, date_of_birth, class_id, profile_pic, is_default_password) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+      [
+        admissionNumber,
+        firstName,
+        middleName,
+        lastName,
+        hashedPassword,
+        gender,
+        dateOfBirth,
+        classId,
+        profilePic,
+        isDefaultPassword,
+      ],
+    );
+    return result;
   } catch (err) {
     throw err;
   }
 }
 
 // Get student By ID with class details
-function getStudentById(studentId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getStudentById = async (studentId) => {
+  const [student] = await connection.query(
+    `
       SELECT 
         students.*,
         classes.class_name
@@ -60,84 +54,57 @@ function getStudentById(studentId) {
         ON students.class_id = classes.class_id
       WHERE students.student_id = ?
       `,
-      [studentId],
-      (err, student) => {
-        if (err) return reject(err);
-        resolve(student);
-      }
-    );
-  });
+    [studentId]
+  );
+  return student[0] || null;
 }
 
 // Get student by admission number
-async function getStudentByAdmissionNumber(admissionNumber) {
-  try {
-    return new Promise((resolve, reject) => {
-      connection.query(
-        `SELECT * FROM students WHERE admission_number = ?`,
-        [admissionNumber],
-        (err, student) => {
-          if (err) return reject(err);
-          resolve(student);
-        }
-      );
-    });
-  } catch (err) {
-    throw err;
-  }
+const getStudentByAdmissionNumber = async (admissionNumber) => {
+  const [student] = await connection.query(
+    `SELECT * FROM students WHERE admission_number = ?`,
+    [admissionNumber],
+  );
+  return student[0] || null;
 }
 
 // Update student profile picture
-function updateStudentProfilePic(studentId, profilePic) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `UPDATE students SET profile_pic = ? WHERE student_id = ?`,
-      [profilePic, studentId],
-      (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      }
-    );
-  });
+const updateStudentProfilePic = async (studentId, profilePic) => {
+  const [result] = await connection.query(
+    `UPDATE students SET profile_pic = ? WHERE student_id = ?`,
+    [profilePic, studentId],
+  );
+  return result;
 }
 
 // Update student password and set is_default_password to 0.
 // If expectedOldPassword is provided, atomically verifies that the password
 // has not changed concurrently before applying the update (Optimistic Concurrency Control).
-function updateStudentPassword(studentId, newHashedPassword, expectedOldPassword = null) {
-  return new Promise((resolve, reject) => {
-    let sql = `UPDATE students SET password = ?, is_default_password = 0 WHERE student_id = ?`;
-    const params = [newHashedPassword, studentId];
+const updateStudentPassword = async (studentId, newHashedPassword, expectedOldPassword = null) => {
+  let sql = `UPDATE students SET password = ?, is_default_password = 0 WHERE student_id = ?`;
+  const params = [newHashedPassword, studentId];
 
-    if (expectedOldPassword) {
-      sql += ` AND password = ?`;
-      params.push(expectedOldPassword);
-    }
+  if (expectedOldPassword) {
+    sql += ` AND password = ?`;
+    params.push(expectedOldPassword);
+  }
 
-    connection.query(sql, params, (err, result) => {
-      if (err) return reject(err);
-      resolve(result);
-    });
-  });
+  const [result] = await connection.query(sql, params);
+  return result;
 }
 
 // Get student attendance metrics
-function getStudentAttendance(studentId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getStudentAttendance = async (studentId) => {
+  connection.query(
+    `
       SELECT * FROM attendance
       WHERE student_id = ?
       ORDER BY session_id DESC, term_id DESC
       LIMIT 1
       `,
-      [studentId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results.length > 0 ? results[0] : { percentage: 90.0, remarks: "Good attendance!" });
-      }
-    );
-  });
+    [studentId],
+  );
+  return results.length > 0 ? results[0] : { percentage: 90.0, remarks: "Good attendance!" };
 }
 
 // ==========================================
@@ -148,32 +115,21 @@ function getStudentAttendance(studentId) {
  * Fetch all academic sessions
  * @returns {Promise<Array>}
  */
-function getSessions() {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      "SELECT * FROM sessions ORDER BY session_name DESC",
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+const getSessions = async () => {
+  connection.query(
+    "SELECT * FROM sessions ORDER BY session_name DESC",
+  );
 }
 
 /**
  * Fetch all academic terms
  * @returns {Promise<Array>}
  */
-function getTerms() {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      "SELECT * FROM terms ORDER BY term_id ASC",
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+const getTerms = async () => {
+  connection.query(
+    "SELECT * FROM terms ORDER BY term_id ASC",
+  );
+  return results;
 }
 
 /**
@@ -181,23 +137,18 @@ function getTerms() {
  * @param {number} studentId
  * @returns {Promise<Object|null>}
  */
-function getLatestResultSessionAndTerm(studentId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getLatestResultSessionAndTerm = async (studentId) => {
+  connection.query(
+    `
       SELECT session_id, term_id 
       FROM student_results 
       WHERE student_id = ? 
       ORDER BY session_id DESC, term_id DESC 
       LIMIT 1
       `,
-      [studentId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results.length > 0 ? results[0] : null);
-      }
-    );
-  });
+    [studentId],
+  );
+  return results.length > 0 ? results[0] : null;
 }
 
 /**
@@ -207,10 +158,9 @@ function getLatestResultSessionAndTerm(studentId) {
  * @param {number} termId
  * @returns {Promise<Object|null>}
  */
-function getResultSummary(studentId, sessionId, termId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getResultSummary = async (studentId, sessionId, termId) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         sr.*, 
         s.session_name, 
@@ -222,13 +172,9 @@ function getResultSummary(studentId, sessionId, termId) {
       JOIN classes c ON sr.class_id = c.class_id
       WHERE sr.student_id = ? AND sr.session_id = ? AND sr.term_id = ?
       `,
-      [studentId, sessionId, termId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results.length > 0 ? results[0] : null);
-      }
-    );
-  });
+    [studentId, sessionId, termId],
+  );
+  return results.length > 0 ? results[0] : null;
 }
 
 /**
@@ -236,10 +182,9 @@ function getResultSummary(studentId, sessionId, termId) {
  * @param {number} resultId
  * @returns {Promise<Array>}
  */
-function getSubjectResults(resultId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getSubjectResults = async (resultId) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         rs.result_subject_id,
         rs.result_id,
@@ -260,13 +205,9 @@ function getSubjectResults(resultId) {
       WHERE rs.result_id = ?
       ORDER BY s.subject_name ASC
       `,
-      [resultId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [resultId],
+  );
+  return results;
 }
 
 // ==========================================
@@ -279,10 +220,9 @@ function getSubjectResults(resultId) {
  * @param {number} classId 
  * @returns {Promise<Array>}
  */
-function getTimetableByClassId(classId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getTimetableByClassId = async (classId) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         timetables.id,
         timetables.class_id,
@@ -302,61 +242,42 @@ function getTimetableByClassId(classId) {
       WHERE timetables.class_id = ?
       ORDER BY timetables.day, timetables.start_time
       `,
-      [classId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [classId],
+  );
+  return results;
 }
 
 /**
  * Add a new timetable entry
  */
-function addTimetableEntry(classId, subjectId, teacherId, day, startTime, endTime, room) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `INSERT INTO timetables (class_id, subject_id, teacher_id, day, start_time, end_time, room) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [classId, subjectId, teacherId, day, startTime, endTime, room],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+const addTimetableEntry = async (classId, subjectId, teacherId, day, startTime, endTime, room) => {
+  const [results] = await connection.query(
+    `INSERT INTO timetables (class_id, subject_id, teacher_id, day, start_time, end_time, room) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [classId, subjectId, teacherId, day, startTime, endTime, room],
+  );
+  return results;
 }
 
 /**
  * Update an existing timetable entry
  */
-function updateTimetableEntry(id, classId, subjectId, teacherId, day, startTime, endTime, room) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `UPDATE timetables SET class_id = ?, subject_id = ?, teacher_id = ?, day = ?, start_time = ?, end_time = ?, room = ? WHERE id = ?`,
-      [classId, subjectId, teacherId, day, startTime, endTime, room, id],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+const updateTimetableEntry = async (id, classId, subjectId, teacherId, day, startTime, endTime, room) => {
+  const [results] = await connection.query(
+    `UPDATE timetables SET class_id = ?, subject_id = ?, teacher_id = ?, day = ?, start_time = ?, end_time = ?, room = ? WHERE id = ?`,
+    [classId, subjectId, teacherId, day, startTime, endTime, room, id],
+  );
+  return results;
 }
 
 /**
  * Delete a timetable entry
  */
-function deleteTimetableEntry(id) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `DELETE FROM timetables WHERE id = ?`,
-      [id],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+const deleteTimetableEntry = async (id) => {
+  const [results] = await connection.query(
+    `DELETE FROM timetables WHERE id = ?`,
+    [id],
+  );
+  return results;
 }
 
 /**
@@ -366,10 +287,9 @@ function deleteTimetableEntry(id) {
  * @param {string} subjectName
  * @returns {Promise<Array>}
  */
-function getSubjectDetails(classId, subjectName) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getSubjectDetails = async (classId, subjectName) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         timetables.room,
         timetables.day,
@@ -386,13 +306,9 @@ function getSubjectDetails(classId, subjectName) {
       WHERE timetables.class_id = ? AND subjects.subject_name = ?
       ORDER BY timetables.day, timetables.start_time
       `,
-      [classId, subjectName],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [classId, subjectName],
+  );
+  return results;
 }
 
 // ==========================================
@@ -405,10 +321,9 @@ function getSubjectDetails(classId, subjectName) {
  * @param {number} classId 
  * @returns {Promise<Array>}
  */
-function getStudentAssessments(studentId, classId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getStudentAssessments = async (studentId, classId) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         a.assessment_id,
         a.title,
@@ -431,13 +346,9 @@ function getStudentAssessments(studentId, classId) {
       WHERE a.class_id = ?
       ORDER BY a.due_date ASC
       `,
-      [studentId, classId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [studentId, classId],
+  );
+  return results;
 }
 
 /**
@@ -446,24 +357,19 @@ function getStudentAssessments(studentId, classId) {
  * @param {number} classId 
  * @returns {Promise<Object>}
  */
-function getAssessmentSummary(studentId, classId) {
-  return new Promise((resolve, reject) => {
-    getStudentAssessments(studentId, classId)
-      .then((items) => {
-        const pendingCount = items.filter((i) => i.status === "Pending" || i.status === "Upcoming").length;
-        const upcomingThisWeekCount = items.filter((i) => i.status === "Upcoming" || i.status === "Pending").length;
-        const completedCount = items.filter((i) => i.status === "Completed").length;
-        const overdueCount = items.filter((i) => i.status === "Overdue").length;
+const getAssessmentSummary = async (studentId, classId) => {
+  const items = await getStudentAssessments(studentId, classId)
+  const pendingCount = items.filter((i) => i.status === "Pending" || i.status === "Upcoming").length;
+  const upcomingThisWeekCount = items.filter((i) => i.status === "Upcoming" || i.status === "Pending").length;
+  const completedCount = items.filter((i) => i.status === "Completed").length;
+  const overdueCount = items.filter((i) => i.status === "Overdue").length;
 
-        resolve({
-          pending: pendingCount,
-          upcomingThisWeek: upcomingThisWeekCount,
-          completed: completedCount,
-          overdue: overdueCount,
-          total: items.length,
-        });
-      })
-      .catch(reject);
+  return ({
+    pending: pendingCount,
+    upcomingThisWeek: upcomingThisWeekCount,
+    completed: completedCount,
+    overdue: overdueCount,
+    total: items.length,
   });
 }
 
@@ -476,10 +382,9 @@ function getAssessmentSummary(studentId, classId) {
  * @param {number} studentId 
  * @returns {Promise<Array>}
  */
-function getStudentPayments(studentId) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getStudentPayments = async (studentId) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         p.payment_id,
         p.student_id,
@@ -498,13 +403,9 @@ function getStudentPayments(studentId) {
       WHERE p.student_id = ?
       ORDER BY p.session_id DESC, p.term_id DESC
       `,
-      [studentId],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [studentId],
+  );
+  return results;
 }
 
 /**
@@ -512,34 +413,29 @@ function getStudentPayments(studentId) {
  * @param {number} studentId 
  * @returns {Promise<Object>}
  */
-function getPaymentStatusSummary(studentId) {
-  return new Promise((resolve, reject) => {
-    getStudentPayments(studentId)
-      .then((payments) => {
-        let totalDue = 0;
-        let totalPaid = 0;
-        let termsPaid = 0;
-        let pendingCount = 0;
+const getPaymentStatusSummary = async (studentId) => {
+  const payments = await getStudentPayments(studentId)
+  let totalDue = 0;
+  let totalPaid = 0;
+  let termsPaid = 0;
+  let pendingCount = 0;
 
-        payments.forEach((p) => {
-          totalDue += parseFloat(p.amount_due || 0);
-          totalPaid += parseFloat(p.amount_paid || 0);
-          if (p.status === "Paid") termsPaid++;
-          if (p.status === "Pending" || p.status === "Partial") pendingCount++;
-        });
+  payments.forEach((p) => {
+    totalDue += parseFloat(p.amount_due || 0);
+    totalPaid += parseFloat(p.amount_paid || 0);
+    if (p.status === "Paid") termsPaid++;
+    if (p.status === "Pending" || p.status === "Partial") pendingCount++;
+  });
 
-        const outstandingBalance = totalDue - totalPaid;
-        const status = outstandingBalance <= 0 ? "Up-to-Date" : "Pending";
+  const outstandingBalance = totalDue - totalPaid;
+  const status = outstandingBalance <= 0 ? "Up-to-Date" : "Pending";
 
-        resolve({
-          status: status,
-          outstandingBalance: outstandingBalance > 0 ? outstandingBalance : 0,
-          termsPaidCount: termsPaid,
-          onTimePercentage: payments.length > 0 ? Math.round((termsPaid / payments.length) * 100) : 100,
-          pendingFees: outstandingBalance > 0 ? outstandingBalance : 0,
-        });
-      })
-      .catch(reject);
+  return ({
+    status: status,
+    outstandingBalance: outstandingBalance > 0 ? outstandingBalance : 0,
+    termsPaidCount: termsPaid,
+    onTimePercentage: payments.length > 0 ? Math.round((termsPaid / payments.length) * 100) : 100,
+    pendingFees: outstandingBalance > 0 ? outstandingBalance : 0,
   });
 }
 
@@ -552,10 +448,9 @@ function getPaymentStatusSummary(studentId) {
  * @param {number} limit 
  * @returns {Promise<Array>}
  */
-function getLatestAnnouncements(limit = 5) {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `
+const getLatestAnnouncements = async (limit = 5) => {
+  const [results] = await connection.query(
+    `
       SELECT 
         announcement_id,
         title,
@@ -567,13 +462,9 @@ function getLatestAnnouncements(limit = 5) {
       ORDER BY publish_date DESC, announcement_id DESC
       LIMIT ?
       `,
-      [limit],
-      (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      }
-    );
-  });
+    [limit],
+  );
+  return results;
 }
 
 // ==========================================

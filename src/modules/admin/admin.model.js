@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 
 const SALT_ROUNDS = 12;
 
-async function createAdmin(email, password) {
+const createAdmin = async (email, password) => {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     return new Promise((resolve, reject) => {
@@ -18,31 +18,26 @@ async function createAdmin(email, password) {
     });
 }
 
-function getAdminById(adminId) {
-    return new Promise((resolve, reject) => {
-        connection.query(
-            `SELECT admin_id, email FROM admin WHERE admin_id = ?`,
-            [adminId],
-            (err, rows) => {
-                if (err) return reject(err);
-                resolve(rows[0] || null);
-            }
-        );
-    });
+const getAdminById = async (adminId) => {
+    try {
+        const [rows] = await connection.query(`SELECT * FROM admin WHERE admin_id = ?`, [adminId])
+        return rows[0] || null
+    } catch (error) {
+        console.error("[admin.model] Error in getAdminById:", error);
+        return null;
+    }
 }
 
 // For login: needs the hash, so only use this internally for auth
-function getAdminByEmail(email) {
-    return new Promise((resolve, reject) => {
-        connection.query(
-            `SELECT admin_id, email, password FROM admin WHERE email = ?`,
-            [email],
-            (err, rows) => {
-                if (err) return reject(err);
-                resolve(rows[0] || null);
-            }
-        );
-    });
+const getAdminByEmail = async (email) => {
+    try {
+        const [rows] = await connection.query(`SELECT * FROM admin WHERE email = ?`, [email])
+        return rows[0] || null
+    } catch (error) {
+        console.error("[admin.model] Error in getAdminByEmail:", error);
+        return null;
+    }
 }
 
-module.exports = { createAdmin, getAdminById, getAdminByEmail };
+
+module.exports = { createAdmin, getAdminById, getAdminByEmail, };

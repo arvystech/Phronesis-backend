@@ -1,4 +1,4 @@
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -10,13 +10,14 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-pool.getConnection((err, conn) => {
-  if (err) return console.error("Error connecting to database pool:", err.message);
-
-  console.log("Database connection successful");
-  conn.release();
-});
-
+pool.getConnection()
+  .then((conn) => {
+    console.log("Database connection successful");
+    conn.release();
+  })
+  .catch((err) => {
+    console.error("Error connecting to database pool:", err.message);
+  });
 /**
  * Execute a unit of work inside a dedicated transaction.
  * Automatically handles acquiring a connection from the pool,
@@ -27,7 +28,7 @@ pool.getConnection((err, conn) => {
  * @returns {Promise<any>}
  */
 pool.withTransaction = async (callback) => {
-  const conn = await pool.promise().getConnection();
+  const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     const result = await callback(conn);

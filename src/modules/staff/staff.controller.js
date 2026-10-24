@@ -1,4 +1,4 @@
-const { createStaff, getStaffById, getAllStaff } = require("../staff/staff.model")
+const { createStaff, getStaffById, getAllStaff, getStaffAttendance } = require("../staff/staff.model")
 const { validateCreateStaff } = require("../../validators/staffValidator")
 
 async function addStaff(req, res) {
@@ -39,4 +39,22 @@ const getStaff = async (req, res) => {
         return res.status(500).json({ message: "Something went wrong" })
     }
 }
-module.exports = { addStaff, getStaff };
+
+const staffAttendance = async (req, res) => {
+    try {
+        const staffAttendance = await getStaffAttendance()
+        res.json({
+            success: true,
+            data: staffAttendance,
+        })
+    } catch (error) {
+        console.error("[adminController] Error in getStaffAttendance:", error);
+        res.status(500).json({
+            success: false,
+            statusCode: 500,
+            title: "Something Went Wrong",
+            message: "We encountered an error loading staff attendance data.",
+        });
+    }
+}
+module.exports = { addStaff, getStaff, staffAttendance };

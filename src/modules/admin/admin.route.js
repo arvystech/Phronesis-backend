@@ -1,5 +1,6 @@
 const adminController = require("./admin.controller")
-const { addStaff } = require("../staff/staff.controller")
+const { addStaff, staffAttendance } = require("../staff/staff.controller")
+
 
 // const {addStaff} require("")
 const express = require("express");
@@ -15,5 +16,12 @@ router
     .get(adminController.getAdminDashboard)
 
 router
-    .post("/admin/add-staff", idempotency(), addStaff)
+    .route("/admin/add-staff")
+    .post(idempotency(), addStaff)
+
+router
+    .route("/admin/staff-attendance")
+    .get(staffAttendance)
+
+
 module.exports = router;

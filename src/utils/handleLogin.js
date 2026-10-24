@@ -4,8 +4,6 @@ const bcrypt = require("bcrypt");
 
 /**
  * Handles login for students, staff, and admins.
- * Verifies credentials, creates a JWT, and sets an
- * HTTP-only authentication cookie.
  */
 async function handleLogin(
   identifier,
@@ -29,26 +27,30 @@ async function handleLogin(
   }
 
   try {
-    // 2. Retrieve the user account
-    const userData = await model(identifier.trim());
+    // 2. Retrieve the user.
+    // The model returns one user object or null.
+    const user = await model(identifier.trim());
 
-    if (!Array.isArray(userData) || userData.length === 0) {
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials. Please check and try again.",
       });
     }
 
-    const user = userData[0];
-
     // 3. Verify the password
     if (
       typeof user.password !== "string" ||
       !user.password
     ) {
-      throw new Error(
-        `Password hash is missing for role "${role}".`
+      console.error(
+        `[handleLogin] Password hash missing for role "${role}".`
       );
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to authenticate this account.",
+      });
     }
 
     const isMatch = await bcrypt.compare(
@@ -83,11 +85,11 @@ async function handleLogin(
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 30 * 60 * 1000, // 30 minutes
+      maxAge: 30 * 60 * 1000,
       path: "/",
     });
 
-    // 7. Return a successful response
+    // 7. Send the successful response
     return res.status(200).json({
       success: true,
       message: "Authentication successful.",
@@ -102,6 +104,10 @@ async function handleLogin(
       `[handleLogin] Unexpected error for role "${role}":`,
       error
     );
+
+    if (res.headersSent) {
+      return;
+    }
 
     return res.status(500).json({
       success: false,

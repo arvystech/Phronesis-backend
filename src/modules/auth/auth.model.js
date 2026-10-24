@@ -5,29 +5,30 @@ const connection = require("../../config/dbConnection");
  * @param {string} admissionNumber
  * @returns {Promise<Array>}
  */
-function getStudentByAdmissionNumber(admissionNumber) {
-  return new Promise((resolve, reject) => {
-    connection.query(
+const getStudentByAdmissionNumber = async (admissionNumber) => {
+  try {
+    const [student] = await connection.query(
       `SELECT * FROM students WHERE admission_number = ?`,
       [admissionNumber],
-      (err, student) => {
-        if (err) return reject(err);
-        resolve(student);
-      }
     );
-  });
+    return student[0] || null
+  } catch (error) {
+    console.error("[admin.model] Error in getStudentByAdmissionNumber:", error);
+    return null;
+  }
 }
 
-function getAdminByEmail(email) {
-  return new Promise((resolve, reject) => {
-    connection.query(
+const getAdminByEmail = async (email) => {
+  try {
+    const [admin] = await connection.query(
       `SELECT * FROM admin WHERE email = ?`,
-      [email], (err, admin) => {
-        if (err) return reject(err)
-        resolve(admin)
-      }
-    )
-  })
+      [email],
+    );
+    return admin[0] || null
+  } catch (error) {
+    console.error("[admin.model] Error in getAdminByEmail:", error);
+    return null;
+  }
 }
 
 module.exports = {
