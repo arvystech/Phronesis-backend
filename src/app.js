@@ -19,10 +19,16 @@ const staffRoutes = require("./modules/staff/staff.route")
 
 const app = express();
 
-// Cross-Origin Resource Sharing (CORS) - Allow incoming requests from any origin
+// Cross-Origin Resource Sharing (CORS) - Allow incoming requests specified origin
+const allowedOrigins = [
+  "https://portal.phronesis-sunesis.com.ng",
+  "https://www.portal.phronesis-sunesis.com.ng",
+  "http://127.0.0.1:5500",
+];
+
 app.use(
   cors({
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allowedHeaders: [
       "Content-Type",
