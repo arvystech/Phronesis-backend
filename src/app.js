@@ -29,6 +29,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: allowedOrigins,
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allowedHeaders: [
       "Content-Type",
@@ -50,7 +51,6 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
-
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
