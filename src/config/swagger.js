@@ -15,6 +15,7 @@ This interactive documentation allows you to explore and test every API endpoint
 1. **Log in first**:
    - For **Student endpoints** (\`/student/*\`): Execute **POST /login/student** with a valid student admission number and password.
    - For **Admin endpoints** (\`/admin/*\`): Execute **POST /login/admin** with a valid admin email and password.
+   - For **Staff endpoints** (\`/staff/*\`): Authenticate with a Bearer token issued for a staff user (\`role: "staff"\`). Staff members can access their own profile and attendance using their matching staff ID.
 
 2. **Automatic Token Authorization**:
    - The login endpoint returns a **JWT token** in the response.
@@ -174,6 +175,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/login/student": {
       get: {
         tags: ["Authentication"],
@@ -263,6 +400,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -388,6 +661,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/staff": {
       get: {
         tags: ["Staff"],
@@ -415,6 +824,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -465,6 +1010,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -555,6 +1236,385 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/admin/staff": {
+      get: {
+        tags: ["Admin"],
+        summary: "List All Staff Members (Admin)",
+        description: "Retrieves all registered school staff members including their employment status, contact details, and department. **Requires Admin Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: "List of staff members retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/StaffMember" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions (Requires Admin role)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/admin/staff/{id}": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get Staff Member Details by ID (Admin)",
+        description: "Retrieves complete record and profile details for a specific staff member by their unique ID. **Requires Admin Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff member details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions (Requires Admin role)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/admin/staff/{id}/attendance": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get Staff Attendance Records by ID (Admin)",
+        description: "Retrieves biometric attendance logs for a specific staff member identified by staff ID. **Requires Admin Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions (Requires Admin role)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/admin/staff-attendance": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get All Staff Attendance Records (Admin)",
+        description: "Retrieves all biometric attendance logs across all staff members, joined with staff personal and department information. **Requires Admin Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions (Requires Admin role)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/student/dashboard": {
       get: {
         tags: ["Students"],
@@ -599,6 +1659,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -757,6 +1953,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/student/change-password": {
       post: {
         tags: ["Students"],
@@ -813,6 +2145,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/student/results": {
       get: {
         tags: ["Students"],
@@ -857,6 +2325,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -951,6 +2555,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/student/api/subject-details": {
       get: {
         tags: ["Students"],
@@ -1031,6 +2771,142 @@ This interactive documentation allows you to explore and test every API endpoint
         },
       },
     },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/student/payments": {
       get: {
         tags: ["Students"],
@@ -1059,6 +2935,142 @@ This interactive documentation allows you to explore and test every API endpoint
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Profile Details (Self)",
+        description: "Retrieves the authenticated staff member's profile record by ID. Staff members can only access their own record (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff profile details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      nullable: true,
+                      $ref: "#/components/schemas/StaffMember",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's record",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/staff/{id}/attendance": {
+      get: {
+        tags: ["Staff"],
+        summary: "Get Staff Attendance Records (Self)",
+        description: "Retrieves biometric attendance logs for the authenticated staff member. Staff members can only access their own records (`id` must match `req.user.id`). **Requires Staff Bearer Token.**",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Staff unique database identifier (must match authenticated staff ID)",
+            schema: {
+              type: "integer",
+              example: 1,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Staff attendance records retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    staff: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/BiometricAttendanceRecord" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required / invalid token",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Forbidden - Insufficient permissions or accessing another staff member's records",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          500: {
+            description: "Server error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Something went wrong" },
+                  },
+                },
               },
             },
           },
@@ -1111,7 +3123,7 @@ This interactive documentation allows you to explore and test every API endpoint
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Enter your JWT token (obtained from POST /login/student or POST /login/admin). Swagger UI will send it in the 'Authorization: Bearer <token>' header on all protected requests.",
+        description: "Enter your JWT token (obtained from POST /login/student, POST /login/admin, or staff authentication). Swagger UI will send it in the 'Authorization: Bearer <token>' header on all protected requests.",
       },
       CsrfToken: {
         type: "apiKey",
@@ -1161,7 +3173,36 @@ This interactive documentation allows you to explore and test every API endpoint
           email: { type: "string", format: "email", nullable: true, example: "emeka.okafor@phronesis.edu" },
           phone: { type: "string", example: "+2348012345678" },
           department: { type: "string", enum: ["Teaching", "Non-Teaching"], example: "Teaching" },
+          employment_status: {
+            type: "string",
+            enum: ["active", "inactive", "suspended", "resigned", "terminated"],
+            example: "active",
+          },
           created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      BiometricAttendanceRecord: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 1 },
+          staff_id: { type: "integer", nullable: true, example: 1 },
+          student_id: { type: "integer", nullable: true, example: null },
+          person_type: { type: "string", enum: ["staff", "student"], example: "staff" },
+          biometric_enrollment_no: { type: "string", example: "12345" },
+          machine_no: { type: "integer", example: 1 },
+          source_record_no: { type: "string", nullable: true, example: "1001" },
+          attendance_datetime: { type: "string", format: "date-time", example: "2026-10-20T08:00:00.000Z" },
+          mode_code: { type: "integer", nullable: true, example: 1 },
+          io_mode: { type: "integer", example: 0, description: "0 = Check-in, 1 = Check-out" },
+          source_file: { type: "string", nullable: true, example: "attlog.dat" },
+          imported_at: { type: "string", format: "date-time" },
+          created_at: { type: "string", format: "date-time" },
+          first_name: { type: "string", example: "Joseph" },
+          last_name: { type: "string", example: "Edet" },
+          email: { type: "string", format: "email", nullable: true, example: "joe@gmail.com" },
+          phone: { type: "string", example: "08012349567" },
+          department: { type: "string", enum: ["Teaching", "Non-Teaching"], example: "Teaching" },
         },
       },
       CreateStaffRequest: {
@@ -1439,7 +3480,7 @@ const customJsStr = `
           const contentType = clone.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const data = await clone.json();
-            if (data && data.token && (data.role === 'student' || data.role === 'admin')) {
+            if (data && data.token && (data.role === 'student' || data.role === 'admin' || data.role === 'staff')) {
               console.log('[PHRONESIS API Docs] Login token detected! Auto-authorizing Swagger session...');
               localStorage.setItem('phronesis_jwt_token', data.token);
               if (window.ui && window.ui.preauthorizeApiKey) {
