@@ -43,7 +43,7 @@ const getAllStaff = async () => {
     return rows
 }
 
-const getStaffAttendance = async () => {
+const getAllStaffAttendance = async () => {
     try {
         const [rows] = await connection.query(`SELECT ba.*, s.first_name, s.last_name, 
             s.email, s.phone, s.department 
@@ -56,4 +56,19 @@ const getStaffAttendance = async () => {
         return null;
     }
 }
-module.exports = { createStaff, getStaffById, getAllStaff, getStaffAttendance };
+
+const getStaffAttendanceById = async (id) => {
+    try {
+        const [rows] = await connection.query(`SELECT ba.*, s.first_name, s.last_name, 
+            s.email, s.phone, s.department 
+            FROM biometric_attendance ba
+            JOIN staff s
+            ON ba.staff_id = s.id WHERE s.id = ?`, [id])
+        return rows
+    } catch (error) {
+        console.error("Error in getStaffAttendance:", error);
+        return null;
+    }
+
+}
+module.exports = { createStaff, getStaffById, getAllStaff, getAllStaffAttendance, getStaffAttendanceById };

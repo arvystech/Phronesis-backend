@@ -1,4 +1,4 @@
-const { createStaff, getStaffById, getAllStaff, getStaffAttendance } = require("../staff/staff.model")
+const { createStaff, getStaffById, getAllStaff, getAllStaffAttendance, getStaffAttendanceById } = require("../staff/staff.model")
 const { validateCreateStaff } = require("../../validators/staffValidator")
 
 async function addStaff(req, res) {
@@ -40,9 +40,9 @@ const getStaff = async (req, res) => {
     }
 }
 
-const staffAttendance = async (req, res) => {
+const allStaffAttendance = async (req, res) => {
     try {
-        const staffAttendance = await getStaffAttendance()
+        const staffAttendance = await getAllStaffAttendance()
         res.json({
             success: true,
             data: staffAttendance,
@@ -57,4 +57,33 @@ const staffAttendance = async (req, res) => {
         });
     }
 }
-module.exports = { addStaff, getStaff, staffAttendance };
+
+const getDetailById = async (req, res) => {
+    try {
+        const staff = await getStaffById(req.params.id)
+        return res.status(200).json({
+            success: true,
+            staff
+        })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json({ message: "Something went wrong" })
+    }
+
+}
+
+const getAttendanceById = async (req, res) => {
+    try {
+        const staff = await getStaffAttendanceById(req.params.id)
+        return res.status(200).json({
+            success: true,
+            staff
+        })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json({ message: "Something went wrong" })
+    }
+
+}
+
+module.exports = { addStaff, getStaff, allStaffAttendance, getDetailById, getAttendanceById };

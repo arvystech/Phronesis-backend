@@ -1,5 +1,5 @@
 const adminController = require("./admin.controller")
-const { addStaff, staffAttendance } = require("../staff/staff.controller")
+const { addStaff, getStaff, allStaffAttendance, getDetailById, getAttendanceById } = require("../staff/staff.controller")
 
 
 // const {addStaff} require("")
@@ -11,6 +11,12 @@ const idempotency = require("../../middlewares/idempotency");
 
 router.use("/admin", requireAuth, verifyRole("admin"));
 
+router.get("/admin/staff/:id", getDetailById);
+router.get("/admin/staff/:id/attendance", getAttendanceById);
+
+router.route("/admin/staff")
+    .get(getStaff);
+
 router
     .route("/admin/dashboard")
     .get(adminController.getAdminDashboard)
@@ -21,7 +27,7 @@ router
 
 router
     .route("/admin/staff-attendance")
-    .get(staffAttendance)
+    .get(allStaffAttendance)
 
 
 module.exports = router;
