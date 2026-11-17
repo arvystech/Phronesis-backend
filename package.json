@@ -9,6 +9,8 @@
     "test:models": "node scripts/test_models.js",
     "test:concurrency": "node scripts/test_concurrency_and_idempotency.js",
     "migrate:idempotency": "node scripts/migrate_idempotency_and_concurrency.js",
+    "migrate:cbt": "node scripts/migrate_cbt.js",
+    "cbt:sweep-expired": "node scripts/sweep_cbt_expired.js",
     "dev": "nodemon server.js"
   },
   "keywords": [],
