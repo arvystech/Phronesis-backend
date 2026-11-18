@@ -46,10 +46,10 @@ router.get("/api-proxy/admin/cbt/students/:studentId/results", controller.getStu
 router.get("/api-proxy/admin/cbt/attempts/:attemptId/review", controller.getAttemptReview);
 
 // Candidate access is separate from the student portal login.
-router.post("/cbt/access", cbtAccessLimiter, controller.accessCandidate);
-router.post("/api-proxy/cbt/access", cbtAccessLimiter, controller.accessCandidate);
-router.post("/student/cbt/access", cbtAccessLimiter, controller.accessCandidate);
-router.post("/api-proxy/student/cbt/access", cbtAccessLimiter, controller.accessCandidate);
+router.post("/cbt/access", controller.accessCandidate);
+router.post("/api-proxy/cbt/access", controller.accessCandidate);
+router.post("/student/cbt/access", controller.accessCandidate);
+router.post("/api-proxy/student/cbt/access", controller.accessCandidate);
 router.post("/cbt/logout", controller.endCandidateAccess);
 router.post("/student/cbt/logout", controller.endCandidateAccess);
 router.post("/api-proxy/student/cbt/logout", controller.endCandidateAccess);
