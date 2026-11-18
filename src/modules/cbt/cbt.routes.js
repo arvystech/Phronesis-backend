@@ -38,12 +38,14 @@ router.get("/admin/cbt/exams/:examId/attempts", controller.listAttempts);
 router.get("/admin/cbt/students", controller.listCbtStudents);
 router.get("/admin/cbt/students/:studentId/results", controller.getStudentCbtResults);
 router.get("/admin/cbt/attempts/:attemptId/review", controller.getAttemptReview);
+router.post("/admin/cbt/attempts/:attemptId/reset", controller.resetAttempt);
 
 // API proxy aliases used by the admin frontend.
 router.use("/api-proxy/admin/cbt", requireAuth, verifyRole("admin"));
 router.get("/api-proxy/admin/cbt/students", controller.listCbtStudents);
 router.get("/api-proxy/admin/cbt/students/:studentId/results", controller.getStudentCbtResults);
 router.get("/api-proxy/admin/cbt/attempts/:attemptId/review", controller.getAttemptReview);
+router.post("/api-proxy/admin/cbt/attempts/:attemptId/reset", controller.resetAttempt);
 
 // Candidate access is separate from the student portal login.
 router.post("/cbt/access", controller.accessCandidate);

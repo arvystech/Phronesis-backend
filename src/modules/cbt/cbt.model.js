@@ -155,8 +155,10 @@ async function startAttempt(studentId, examId) {
     if (!students.length || !exams.length || students[0].class_id !== exams[0].class_id) throw httpError(403, "This exam is not available.", "EXAM_UNAVAILABLE");
     const [existing] = await conn.query("SELECT attempt_id FROM cbt_attempts WHERE student_id=? AND exam_id=? AND status<>'voided'", [studentId, examId]);
     if (existing.length) throw httpError(409, "An attempt already exists for this exam.", "ATTEMPT_EXISTS");
+    const [attemptNumbers] = await conn.query("SELECT COALESCE(MAX(attempt_number),0)+1 next_attempt_number FROM cbt_attempts WHERE student_id=? AND exam_id=?", [studentId, examId]);
+    const attemptNumber = Number(attemptNumbers[0].next_attempt_number);
     const [q] = await conn.query("SELECT COUNT(*) count FROM cbt_questions WHERE exam_id=? AND version=?", [examId, exams[0].current_version]);
-    const [insert] = await conn.query(`INSERT INTO cbt_attempts(student_id,exam_id,version,started_at,expires_at,max_score,last_activity_at) VALUES(?,?,?,${nowSql},DATE_ADD(${nowSql},INTERVAL ? SECOND),?,${nowSql})`, [studentId, examId, exams[0].current_version, exams[0].duration_seconds, q[0].count]);
+    const [insert] = await conn.query(`INSERT INTO cbt_attempts(student_id,exam_id,version,attempt_number,started_at,expires_at,max_score,last_activity_at) VALUES(?,?,?,?,${nowSql},DATE_ADD(${nowSql},INTERVAL ? SECOND),?,${nowSql})`, [studentId, examId, exams[0].current_version, attemptNumber, exams[0].duration_seconds, q[0].count]);
     await conn.query("INSERT INTO cbt_audit_events(actor_type,actor_id,exam_id,attempt_id,event_type) VALUES('student',?,?,?, 'attempt_started')", [studentId, examId, insert.insertId]);
     return insert.insertId;
   }); } catch (error) {
@@ -169,6 +171,7 @@ async function getAttempt(studentId, attemptId, finalizeExpired = true) {
   const [rows] = await db.query("SELECT a.*,e.title,e.class_id,e.subject_id,c.class_name,s.subject_name,(a.expires_at<=UTC_TIMESTAMP()) expired FROM cbt_attempts a JOIN cbt_exams e ON e.exam_id=a.exam_id JOIN classes c ON c.class_id=e.class_id JOIN subjects s ON s.subject_id=e.subject_id WHERE a.attempt_id=? AND a.student_id=?", [attemptId, studentId]);
   if (!rows.length) throw httpError(404, "Attempt not found.", "ATTEMPT_NOT_FOUND");
   let attempt = rows[0];
+  if (attempt.status === "voided") throw httpError(409, "This attempt was reset by an administrator. Refresh the exam list to start a new attempt.", "ATTEMPT_RESET");
   if (finalizeExpired && attempt.status === "in_progress" && attempt.expired) {
     await submitAttempt(studentId, attemptId, "time_limit");
     return getAttempt(studentId, attemptId, false);
@@ -232,7 +235,7 @@ async function submitAttempt(studentId, attemptId, reason = "student") {
 }
 
 async function listAttempts(examId) {
-  const [rows] = await db.query("SELECT a.attempt_id,a.student_id,st.admission_number,st.first_name,st.last_name,a.status,a.started_at,a.expires_at,a.submitted_at,a.score,a.max_score FROM cbt_attempts a JOIN students st ON st.student_id=a.student_id WHERE a.exam_id=? ORDER BY a.started_at DESC LIMIT 500", [examId]);
+  const [rows] = await db.query("SELECT a.attempt_id,a.attempt_number,a.student_id,st.admission_number,st.first_name,st.last_name,a.status,a.started_at,a.expires_at,a.submitted_at,a.score,a.max_score FROM cbt_attempts a JOIN students st ON st.student_id=a.student_id WHERE a.exam_id=? ORDER BY a.started_at DESC LIMIT 500", [examId]);
   return rows;
 }
 
@@ -250,6 +253,30 @@ async function sweepExpiredAttempts(batchSize = 500) {
     if (result.status === "auto_submitted") finalized++;
   }
   return { scanned: expired.length, finalized };
+}
+
+async function resetAttempt(adminId, attemptId) {
+  return db.withTransaction(async (conn) => {
+    const [rows] = await conn.query(
+      `SELECT a.attempt_id,a.student_id,a.exam_id,a.status,e.status exam_status,
+              (e.available_from IS NULL OR e.available_from<=UTC_TIMESTAMP()) available_started,
+              (e.available_until IS NULL OR e.available_until>UTC_TIMESTAMP()) available_not_ended
+       FROM cbt_attempts a JOIN cbt_exams e ON e.exam_id=a.exam_id
+       WHERE a.attempt_id=? FOR UPDATE`,
+      [attemptId]
+    );
+    const attempt = rows[0];
+    if (!attempt || attempt.status === "voided") throw httpError(404, "Active attempt not found.", "ATTEMPT_NOT_FOUND");
+    if (attempt.exam_status !== "published" || !attempt.available_started || !attempt.available_not_ended) {
+      throw httpError(409, "This exam is not currently available for a replacement attempt.", "EXAM_NOT_AVAILABLE");
+    }
+    await conn.query("UPDATE cbt_attempts SET status='voided' WHERE attempt_id=?", [attemptId]);
+    await conn.query(
+      "INSERT INTO cbt_audit_events(actor_type,actor_id,exam_id,attempt_id,event_type) VALUES('admin',?,?,?,'attempt_reset')",
+      [adminId, attempt.exam_id, attemptId]
+    );
+    return { attemptId: attempt.attempt_id, studentId: attempt.student_id, examId: attempt.exam_id };
+  });
 }
 
 async function listCbtStudents(filters = {}) {
@@ -302,7 +329,7 @@ async function getStudentCbtResults(studentId) {
   );
   if (!students.length) throw httpError(404, "Student not found.", "STUDENT_NOT_FOUND");
   const [attempts] = await db.query(
-    `SELECT a.attempt_id,a.exam_id,a.version,a.status,a.started_at,a.expires_at,
+    `SELECT a.attempt_id,a.exam_id,a.version,a.attempt_number,a.status,a.started_at,a.expires_at,
             a.submitted_at,a.submission_reason,a.score,a.max_score,
             e.title,e.duration_seconds,e.session_id,e.term_id,
             c.class_name,s.subject_name,se.session_name,t.term_name,
@@ -337,7 +364,7 @@ async function getStudentCbtResults(studentId) {
 
 async function getAttemptReview(attemptId) {
   const [attemptRows] = await db.query(
-    `SELECT a.attempt_id,a.student_id,a.exam_id,a.version,a.status,a.started_at,a.expires_at,
+    `SELECT a.attempt_id,a.student_id,a.exam_id,a.version,a.attempt_number,a.status,a.started_at,a.expires_at,
             a.submitted_at,a.submission_reason,a.score,a.max_score,
             st.admission_number,st.first_name,st.middle_name,st.last_name,
             e.title,e.duration_seconds,c.class_name,s.subject_name,se.session_name,t.term_name
@@ -396,6 +423,7 @@ async function getAttemptReview(attemptId) {
       attemptId: row.attempt_id,
       status: row.status,
       version: row.version,
+      attemptNumber: row.attempt_number,
       startedAt: row.started_at,
       expiresAt: row.expires_at,
       submittedAt: row.submitted_at,
@@ -426,4 +454,4 @@ async function getAttemptReview(attemptId) {
   };
 }
 
-module.exports = { validateExam, listClasses, listSubjects, resolveCandidate, listAdminExams, getAdminExam, createExam, updateExam, setExamStatus, listStudentExams, startAttempt, getAttempt, saveAnswer, submitAttempt, listAttempts, sweepExpiredAttempts, listCbtStudents, getStudentCbtResults, getAttemptReview, httpError };
+module.exports = { validateExam, listClasses, listSubjects, resolveCandidate, listAdminExams, getAdminExam, createExam, updateExam, setExamStatus, listStudentExams, startAttempt, getAttempt, saveAnswer, submitAttempt, listAttempts, sweepExpiredAttempts, resetAttempt, listCbtStudents, getStudentCbtResults, getAttemptReview, httpError };

@@ -38,6 +38,15 @@ const listAttempts = run(async (req, res) => res.json({ success: true, attempts:
 const listCbtStudents = run(async (req, res) => res.json({ success: true, ...await model.listCbtStudents(req.query) }));
 const getStudentCbtResults = run(async (req, res) => res.json({ success: true, ...await model.getStudentCbtResults(req.params.studentId) }));
 const getAttemptReview = run(async (req, res) => res.json({ success: true, ...await model.getAttemptReview(req.params.attemptId) }));
+const resetAttempt = run(async (req, res) => {
+  const result = await model.resetAttempt(req.user.id, req.params.attemptId);
+  res.json({
+    success: true,
+    ...result,
+    status: "voided",
+    message: "Attempt reset. The student can start a new attempt while the exam is available.",
+  });
+});
 
 const listCandidateExams = run(async (req, res) => res.json({ success: true, exams: await model.listStudentExams(req.cbtCandidate.id) }));
 const accessCandidate = run(async (req, res) => {
@@ -87,4 +96,4 @@ const submitAttempt = run(async (req, res) => {
   res.json({ success: true, attemptId: attempt.attempt_id, status: attempt.status, submittedAt: attempt.submitted_at, answeredCount: undefined, score: undefined, maxScore: undefined, message: "Your exam has been submitted successfully." });
 });
 
-module.exports = { listClasses, listSubjects, listAdminExams, getAdminExam, createExam, updateExam, publishExam, closeExam, archiveExam, listAttempts, listCbtStudents, getStudentCbtResults, getAttemptReview, accessCandidate, endCandidateAccess, listCandidateExams, startAttempt, getAttempt, saveAnswer, submitAttempt };
+module.exports = { listClasses, listSubjects, listAdminExams, getAdminExam, createExam, updateExam, publishExam, closeExam, archiveExam, listAttempts, listCbtStudents, getStudentCbtResults, getAttemptReview, resetAttempt, accessCandidate, endCandidateAccess, listCandidateExams, startAttempt, getAttempt, saveAnswer, submitAttempt };

@@ -55,12 +55,12 @@ async function main() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS cbt_attempts (
       attempt_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, student_id INT NOT NULL,
-      exam_id BIGINT UNSIGNED NOT NULL, version INT NOT NULL,
+      exam_id BIGINT UNSIGNED NOT NULL, version INT NOT NULL, attempt_number INT NOT NULL DEFAULT 1,
       status ENUM('in_progress','submitted','auto_submitted','voided') NOT NULL DEFAULT 'in_progress',
       started_at DATETIME NOT NULL, expires_at DATETIME NOT NULL, submitted_at DATETIME NULL,
       submission_reason ENUM('student','time_limit') NULL, score INT NULL, max_score INT NOT NULL,
       last_activity_at DATETIME NOT NULL,
-      PRIMARY KEY(attempt_id), UNIQUE KEY uq_cbt_one_attempt(student_id,exam_id),
+      PRIMARY KEY(attempt_id), UNIQUE KEY uq_cbt_attempt_number(student_id,exam_id,attempt_number),
       KEY idx_cbt_attempt_exam_status(exam_id,status),
       CONSTRAINT fk_cbt_attempt_student FOREIGN KEY(student_id) REFERENCES students(student_id),
       CONSTRAINT fk_cbt_attempt_version FOREIGN KEY(exam_id,version) REFERENCES cbt_exam_versions(exam_id,version)
@@ -84,6 +84,19 @@ async function main() {
   ];
   try {
     for (const sql of statements) await db.query(sql);
+
+    // Upgrade databases created by the earlier one-attempt schema. Existing
+    // attempts receive attempt_number=1; the new index permits audited retries.
+    const [attemptNumberColumn] = await db.query("SHOW COLUMNS FROM cbt_attempts LIKE 'attempt_number'");
+    if (!attemptNumberColumn.length) {
+      await db.query("ALTER TABLE cbt_attempts ADD COLUMN attempt_number INT NOT NULL DEFAULT 1 AFTER version");
+    }
+    const [attemptNumberIndex] = await db.query("SHOW INDEX FROM cbt_attempts WHERE Key_name='uq_cbt_attempt_number'");
+    if (!attemptNumberIndex.length) {
+      await db.query("ALTER TABLE cbt_attempts ADD UNIQUE KEY uq_cbt_attempt_number (student_id,exam_id,attempt_number)");
+    }
+    const [legacyUniqueIndex] = await db.query("SHOW INDEX FROM cbt_attempts WHERE Key_name='uq_cbt_one_attempt'");
+    if (legacyUniqueIndex.length) await db.query("ALTER TABLE cbt_attempts DROP INDEX uq_cbt_one_attempt");
     console.log("CBT tables are ready.");
   } finally {
     await db.end();
