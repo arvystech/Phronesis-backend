@@ -100,3 +100,4 @@ public-gatsby
 .DS_Store
 Thumbs.db
 
+*.sql

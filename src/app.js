@@ -16,6 +16,7 @@ const authRoutes = require("./modules/auth/auth.routes");
 const studentRoutes = require("./modules/students/student.routes");
 const adminRoutes = require("./modules/admin/admin.route")
 const staffRoutes = require("./modules/staff/staff.route")
+const cbtRoutes = require("./modules/cbt/cbt.routes")
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use(authRoutes);
 app.use(studentRoutes);
 app.use(adminRoutes)
 app.use(staffRoutes)
+app.use(cbtRoutes)
 
 
 // ─── 404 API Handler
