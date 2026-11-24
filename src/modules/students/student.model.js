@@ -56,7 +56,8 @@ const getStudentById = async (studentId) => {
       `,
     [studentId]
   );
-  return student[0] || null;
+  // Existing student controllers and model checks consume this as a result array.
+  return student;
 }
 
 // Get student by admission number
@@ -116,9 +117,10 @@ const getStudentAttendance = async (studentId) => {
  * @returns {Promise<Array>}
  */
 const getSessions = async () => {
-  connection.query(
+  const [results] = await connection.query(
     "SELECT * FROM sessions ORDER BY session_name DESC",
   );
+  return results;
 }
 
 /**
@@ -126,7 +128,7 @@ const getSessions = async () => {
  * @returns {Promise<Array>}
  */
 const getTerms = async () => {
-  connection.query(
+  const [results] = await connection.query(
     "SELECT * FROM terms ORDER BY term_id ASC",
   );
   return results;
@@ -138,7 +140,7 @@ const getTerms = async () => {
  * @returns {Promise<Object|null>}
  */
 const getLatestResultSessionAndTerm = async (studentId) => {
-  connection.query(
+  const [results] = await connection.query(
     `
       SELECT session_id, term_id 
       FROM student_results 

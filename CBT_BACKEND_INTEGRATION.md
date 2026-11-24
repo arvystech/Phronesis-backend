@@ -53,6 +53,7 @@ Compatibility aliases also exist under `/student/cbt/...`; the frontend may use 
 Add a migration file under `scripts/` (do not append feature tables to the supplied phpMyAdmin dump as the deployment mechanism). Use InnoDB, foreign keys to the existing tables, UTC timestamps, and transactions. Suggested tables:
 
 - `cbt_exams`: auto-increment `BIGINT UNSIGNED` ID, title, `class_id INT`, `subject_id INT`, nullable `session_id INT` and `term_id INT`, `duration_seconds INT`, status, availability window, current version, `created_by/updated_by BIGINT UNSIGNED`, audit timestamps. Foreign keys reference `classes`, `subjects`, `sessions`, `terms`, and `admin`.
+- `cbt_exam_classes`: many-to-many mapping between exams and existing class/arm records. `class_id` remains the legacy primary assigned class on `cbt_exams` for compatibility; new API payloads should send `classIds`.
 - `cbt_exam_versions`: `(exam_id, version)` unique key plus publication timestamp and immutable snapshot metadata.
 - `cbt_questions`: exam/version, position, prompt, unique `(exam_id, version, position)`.
 - `cbt_options`: question, label, text, `is_correct`; unique `(question_id, label)`. Validate exactly A/B/C/D and exactly one correct option in a transaction in application code (MySQL CHECK constraints cannot enforce cross-row counts).
@@ -80,11 +81,21 @@ Recommended rollout: add and apply the MySQL migration; implement admin draft/pu
 ## Implemented in this repository
 
 - `scripts/migrate_cbt.js` creates the CBT tables and audit event table; run with `npm run migrate:cbt` after setting the normal database environment variables. `scripts/sweep_cbt_expired.js` finalizes expired attempts and should be scheduled in production with `npm run cbt:sweep-expired`.
+- Exams can be assigned to multiple class arms using `classIds: [1, 2]`; the CBT migration creates `cbt_exam_classes` and backfills each existing exam's former `class_id`. Existing `classId` requests still work as a one-class assignment.
 - `src/modules/cbt/` currently exposes admin draft CRUD, publish/close/archive, attempt listing, student eligible-exam listing, attempt start/resume, answer save, and submit routes. They are mounted by `src/app.js` and use the existing role middleware.
 - The admin dashboard can fetch a paginated student roster at `GET /admin/cbt/students` (or `/api-proxy/admin/cbt/students`) and each student's full attempt history at `GET /admin/cbt/students/:studentId/results` (or the `/api-proxy/admin/cbt` alias). These routes require an admin role.
+- General student directory/details are available from `GET /api-proxy/admin/students` and `GET /api-proxy/admin/students/:studentId`. Admins can edit admission number, names, optional gender/date of birth, class, and guardian name/phone with `PATCH /api-proxy/admin/students/:studentId`; password hashes are not returned.
 - Admin answer review is available at `GET /admin/cbt/attempts/:attemptId/review` (also under `/api-proxy/admin/cbt`). It returns all questions from that attempt's immutable version, selected and correct options, and summary counts for a next/previous modal.
 - Admins can reset an attempt with `POST /admin/cbt/attempts/:attemptId/reset` (also under `/api-proxy/admin/cbt`). The attempt is marked `voided` and retained for audit; the student can start another attempt while the exam remains available.
+- Admins can set or clear a class password with `PATCH /classes/:classId/password` (also `/api-proxy/classes/:classId/password`). Passwords are bcrypt-hashed and never returned; run `npm run migrate:class-password` to add the nullable database column.
 - Public class and subject lookup data are available at `/admin/cbt/classes`, `/admin/cbt/subjects`, `/classes`, `/subjects`, `/api-proxy/classes`, and `/api-proxy/subjects`. These GET routes do not require sign-in and do not create a CBT candidate session.
 - Student attempt identity is taken from the CBT-only signed token. Timer enforcement and grading use MySQL UTC time and the server-side answer key. Student question payloads omit correctness data.
 
 Published exams are immutable and the API currently rejects editing them; an explicit new-version workflow remains to be added. The browser applications are absent from this repository, so their localStorage migration and UI behavior remain a separate frontend task.
+
+## Results portal API
+
+- Run `npm run migrate:results` before using the Results portal. It ensures class password and separate CA mark columns exist and creates the active academic period setting.
+- Public class dropdown: `GET /results/classes` (proxy alias `/api-proxy/results/classes`). Login: `POST /results/auth/login` with `{ classId, password }`. A valid class password creates an eight-hour HttpOnly class-scoped `results_teacher` session. Authenticated APIs are available under both `/results/...` and `/api-proxy/results/...`.
+- The class-scoped session can only access its class. `GET /results/auth/me` returns the assigned class and active session/term. Admins set the active period with `PUT /results/admin/active-period` and `{ sessionId, termId }`.
+- Results subject lists and score completeness use every row in the `subjects` table, independent of CBT and `subject_teachers`; this supports paper-based exams whose marks are uploaded later. Scores use `result_subjects.ca1_score`, `ca2_score`, `ca3_score`, `ca_score`, `exam_score`, `total_score`, and `grade`, with `student_results` unique by student/session/term. The backend validates CA marks 0–10 and examination 0–70, calculates totals and grade bands (A 70+, B 60+, C 50+, D 45+, E 40+, F below 40), and calculates standings only for students with scores in every database subject. Equal average and total scores share a competition rank.

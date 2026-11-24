@@ -35,6 +35,14 @@ async function main() {
       CONSTRAINT fk_cbt_exam_created_by FOREIGN KEY (created_by) REFERENCES admin(admin_id),
       CONSTRAINT fk_cbt_exam_updated_by FOREIGN KEY (updated_by) REFERENCES admin(admin_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS cbt_exam_classes (
+      exam_id BIGINT UNSIGNED NOT NULL,
+      class_id INT NOT NULL,
+      PRIMARY KEY (exam_id,class_id),
+      KEY idx_cbt_exam_classes_class (class_id),
+      CONSTRAINT fk_cbt_exam_classes_exam FOREIGN KEY (exam_id) REFERENCES cbt_exams(exam_id) ON DELETE CASCADE,
+      CONSTRAINT fk_cbt_exam_classes_class FOREIGN KEY (class_id) REFERENCES classes(class_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS cbt_exam_versions (
       exam_id BIGINT UNSIGNED NOT NULL, version INT NOT NULL,
       published_at DATETIME NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -84,6 +92,12 @@ async function main() {
   ];
   try {
     for (const sql of statements) await db.query(sql);
+
+    // Preserve each existing exam's single class assignment in the new join table.
+    await db.query(
+      `INSERT IGNORE INTO cbt_exam_classes(exam_id,class_id)
+       SELECT exam_id,class_id FROM cbt_exams`
+    );
 
     // Upgrade databases created by the earlier one-attempt schema. Existing
     // attempts receive attempt_number=1; the new index permits audited retries.

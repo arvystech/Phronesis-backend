@@ -15,18 +15,15 @@ const cbtAccessLimiter = rateLimit({
   message: { success: false, statusCode: 429, code: "TOO_MANY_ACCESS_ATTEMPTS", message: "Too many access attempts. Try again later." },
 });
 
-// Public CBT reference data. These lookups do not create a candidate session.
-router.get("/admin/cbt/classes", controller.listClasses);
-router.get("/admin/cbt/subjects", controller.listSubjects);
-router.get("/classes", controller.listClasses);
-router.get("/subjects", controller.listSubjects);
-router.get("/api-proxy/classes", controller.listClasses);
-router.get("/api-proxy/subjects", controller.listSubjects);
+// Public CBT reference data. Candidate pages may load these without access creation.
 router.get("/api-proxy/student/cbt/classes", controller.listClasses);
 router.get("/api-proxy/student/cbt/subjects", controller.listSubjects);
+router.get("/student/cbt/classes", controller.listClasses);
+router.get("/student/cbt/subjects", controller.listSubjects);
 
 // Keep CBT lookups public above this line; exam management remains admin-only.
 router.use("/admin/cbt", requireAuth, verifyRole("admin"));
+router.get("/admin/cbt/subjects", controller.listSubjects);
 router.get("/admin/cbt/exams", controller.listAdminExams);
 router.post("/admin/cbt/exams", idempotency(), controller.createExam);
 router.get("/admin/cbt/exams/:examId", controller.getAdminExam);
@@ -42,6 +39,7 @@ router.post("/admin/cbt/attempts/:attemptId/reset", controller.resetAttempt);
 
 // API proxy aliases used by the admin frontend.
 router.use("/api-proxy/admin/cbt", requireAuth, verifyRole("admin"));
+router.get("/api-proxy/admin/cbt/subjects", controller.listSubjects);
 router.get("/api-proxy/admin/cbt/students", controller.listCbtStudents);
 router.get("/api-proxy/admin/cbt/students/:studentId/results", controller.getStudentCbtResults);
 router.get("/api-proxy/admin/cbt/attempts/:attemptId/review", controller.getAttemptReview);

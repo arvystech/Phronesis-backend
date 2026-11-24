@@ -15,7 +15,7 @@ const { formatTime, formatTimetableEntries } = require("../../utils/formatTimeta
  */
 const renderStudentView = async (req, res, viewName, pageTitle) => {
   try {
-    const getStudent = await studentModel.getStudentById(req.user.id);
+    const getStudent = await studentModel.getStudentById((req.studentId || req.user.id));
     const student = getStudent[0];
 
     if (!student) {
@@ -66,7 +66,7 @@ const renderStudentView = async (req, res, viewName, pageTitle) => {
 const getStudentDashboard = async (req, res) => {
   console.log("student:", req.user)
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -136,7 +136,7 @@ const getStudentSettings = (req, res) => {
 
 const getStudentProfile = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -200,7 +200,7 @@ const executeUploadProfilePic = async (req, res) => {
   }
 
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const newFilename = req.file.filename;
 
     // Use connection.withTransaction with FOR UPDATE row lock to serialize concurrent uploads for this student
@@ -280,7 +280,7 @@ const uploadProfilePic = (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
 
     // 1. Validate required fields
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -375,7 +375,7 @@ const changePassword = async (req, res) => {
 
 const getStudentResults = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -425,7 +425,10 @@ const getStudentResults = async (req, res) => {
       selectedSessionId: sessionId,
       selectedTermId: termId,
       summary: summary,
+      result: summary,
       subjectResults: subjectResults,
+      results: subjectResults,
+      hasResults: subjectResults.length > 0,
     });
   } catch (error) {
     console.error("[resultsController] Error in getStudentResults:", error);
@@ -440,7 +443,7 @@ const getStudentResults = async (req, res) => {
 
 const printStudentResults = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -505,7 +508,7 @@ const printStudentResults = async (req, res) => {
 
 const getStudentTimetable = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -542,7 +545,7 @@ const getStudentTimetable = async (req, res) => {
 
 const getSubjectDetailsAPI = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const subjectName = req.query.subject;
 
     if (!subjectName) {
@@ -603,7 +606,7 @@ const getSubjectDetailsAPI = async (req, res) => {
 
 const getStudentAssessments = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 
@@ -639,7 +642,7 @@ const getStudentAssessments = async (req, res) => {
 
 const getStudentPayments = async (req, res) => {
   try {
-    const studentId = req.user.id;
+    const studentId = (req.studentId || req.user.id);
     const getStudent = await studentModel.getStudentById(studentId);
     const student = getStudent[0];
 

@@ -39,7 +39,7 @@ const getStaffById = async (id) => {
 }
 
 const getAllStaff = async () => {
-    const [rows] = await connection.query(`SELECT * FROM staff`)
+    const [rows] = await connection.query(`SELECT id,staff_no,first_name,last_name,other_names,email,phone,department,employment_status FROM staff ORDER BY last_name,first_name`)
     return rows
 }
 
