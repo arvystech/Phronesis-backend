@@ -12,7 +12,15 @@ const run = (handler) => async (req, res) => {
 
 const listAdminExams = run(async (req, res) => res.json({ success: true, exams: await model.listAdminExams(req.query) }));
 const listClasses = run(async (req, res) => res.json({ success: true, classes: await model.listClasses() }));
-const listSubjects = run(async (req, res) => res.json({ success: true, subjects: await model.listSubjects() }));
+const listSubjects = run(async (req, res) => res.json({ success: true, subjects: await model.listSubjects(req.query) }));
+const createSubject = run(async (req, res) => {
+  const subject = await model.createSubject(req.body);
+  res.status(201).json({ success: true, subject, message: "Subject created and assigned to the selected classes." });
+});
+const setSubjectClasses = run(async (req, res) => {
+  const assignment = await model.setSubjectClasses(req.params.subjectId, req.body?.classIds ?? req.body?.class_ids);
+  res.json({ success: true, ...assignment, message: "Subject class offerings updated." });
+});
 const getAdminExam = run(async (req, res) => res.json({ success: true, exam: await model.getAdminExam(req.params.examId) }));
 const createExam = run(async (req, res) => {
   const examId = await model.createExam(req.body, req.user.id);
@@ -34,7 +42,10 @@ const archiveExam = run(async (req, res) => {
   await model.setExamStatus(req.params.examId, req.user.id, "archive");
   res.json({ success: true, message: "Exam archived." });
 });
-const listAttempts = run(async (req, res) => res.json({ success: true, attempts: await model.listAttempts(req.params.examId) }));
+const listAttempts = run(async (req, res) => {
+  const result = await model.listAttempts({ ...req.query, ...(req.params.examId ? { examId: req.params.examId } : {}) });
+  res.json({ success: true, ...result });
+});
 const listCbtStudents = run(async (req, res) => res.json({ success: true, ...await model.listCbtStudents(req.query) }));
 const getStudentCbtResults = run(async (req, res) => res.json({ success: true, ...await model.getStudentCbtResults(req.params.studentId) }));
 const getAttemptReview = run(async (req, res) => res.json({ success: true, ...await model.getAttemptReview(req.params.attemptId) }));
@@ -96,4 +107,4 @@ const submitAttempt = run(async (req, res) => {
   res.json({ success: true, attemptId: attempt.attempt_id, status: attempt.status, submittedAt: attempt.submitted_at, answeredCount: undefined, score: undefined, maxScore: undefined, message: "Your exam has been submitted successfully." });
 });
 
-module.exports = { listClasses, listSubjects, listAdminExams, getAdminExam, createExam, updateExam, publishExam, closeExam, archiveExam, listAttempts, listCbtStudents, getStudentCbtResults, getAttemptReview, resetAttempt, accessCandidate, endCandidateAccess, listCandidateExams, startAttempt, getAttempt, saveAnswer, submitAttempt };
+module.exports = { listClasses, listSubjects, createSubject, setSubjectClasses, listAdminExams, getAdminExam, createExam, updateExam, publishExam, closeExam, archiveExam, listAttempts, listCbtStudents, getStudentCbtResults, getAttemptReview, resetAttempt, accessCandidate, endCandidateAccess, listCandidateExams, startAttempt, getAttempt, saveAnswer, submitAttempt };

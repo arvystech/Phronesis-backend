@@ -12,6 +12,7 @@
     "migrate:cbt": "node scripts/migrate_cbt.js",
     "migrate:class-password": "node scripts/migrate_class_password.js",
     "migrate:results": "node scripts/migrate_results_portal.js",
+    "migrate:subject-classes": "node scripts/migrate_subject_classes.js",
     "cbt:sweep-expired": "node scripts/sweep_cbt_expired.js",
     "dev": "nodemon server.js"
   },

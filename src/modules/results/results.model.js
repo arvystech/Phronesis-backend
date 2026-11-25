@@ -57,8 +57,13 @@ async function listStudents(classId) {
   return rows;
 }
 
-async function listClassSubjects(_classId) {
-  const [rows] = await db.query("SELECT subject_id,subject_name,subject_code FROM subjects ORDER BY subject_name");
+async function listClassSubjects(classId) {
+  const [rows] = await db.query(
+    `SELECT s.subject_id,s.subject_name,s.subject_code
+     FROM subject_classes sc JOIN subjects s ON s.subject_id=sc.subject_id
+     WHERE sc.class_id=? ORDER BY s.subject_name`,
+    [classId]
+  );
   return rows;
 }
 
@@ -80,12 +85,13 @@ async function getStudentScores(classId, studentId, sessionId, termId) {
             rs.exam_score AS examination,rs.ca_score AS totalCa,
             rs.total_score AS finalTotal,rs.grade,rs.remarks
      FROM subjects s
+     JOIN subject_classes sc ON sc.subject_id=s.subject_id AND sc.class_id=?
      LEFT JOIN student_results sr ON sr.student_id=? AND sr.class_id=? AND sr.session_id=? AND sr.term_id=?
      LEFT JOIN result_subjects rs ON rs.result_id=sr.result_id AND rs.subject_id=s.subject_id
      GROUP BY s.subject_id,s.subject_name,s.subject_code,rs.ca1_score,rs.ca2_score,rs.ca3_score,
               rs.exam_score,rs.ca_score,rs.total_score,rs.grade,rs.remarks
      ORDER BY s.subject_name`,
-    [studentId, classId, sessionId, termId]
+    [classId, studentId, classId, sessionId, termId]
   );
   const scores = rows.map((row) => ({
     ...row,
@@ -113,7 +119,7 @@ function gradePoint(grade) {
 }
 
 async function refreshClassPositions(conn, classId, sessionId, termId) {
-  const [subjects] = await conn.query("SELECT COUNT(*) subject_count FROM subjects");
+  const [subjects] = await conn.query("SELECT COUNT(*) subject_count FROM subject_classes WHERE class_id=?", [classId]);
   const requiredCount = Number(subjects[0].subject_count);
   await conn.query(
     "UPDATE student_results SET class_position=0,total_students=0 WHERE class_id=? AND session_id=? AND term_id=?",
@@ -124,6 +130,7 @@ async function refreshClassPositions(conn, classId, sessionId, termId) {
     `SELECT sr.result_id,sr.average_score,sr.total_score
      FROM student_results sr
      JOIN result_subjects rs ON rs.result_id=sr.result_id
+     JOIN subject_classes sc ON sc.subject_id=rs.subject_id AND sc.class_id=sr.class_id
      WHERE sr.class_id=? AND sr.session_id=? AND sr.term_id=?
      GROUP BY sr.result_id,sr.average_score,sr.total_score
      HAVING COUNT(DISTINCT rs.subject_id)=?
@@ -144,11 +151,11 @@ async function saveStudentScores(classId, studentId, sessionId, termId, scores) 
   return db.withTransaction(async (conn) => {
     const student = await getClassStudent(classId, studentId, conn);
     if (!student) throw fail(404, "STUDENT_NOT_IN_CLASS", "Student was not found in this class.");
-    const [allSubjects] = await conn.query("SELECT subject_id FROM subjects");
+    const [allSubjects] = await conn.query("SELECT subject_id FROM subject_classes WHERE class_id=?", [classId]);
     const requiredSubjectIds = allSubjects.map((row) => Number(row.subject_id)).sort((a, b) => a - b);
     const requestedIds = scores.map((item) => Number(item.subjectId)).sort((a, b) => a - b);
     if (!requiredSubjectIds.length || requiredSubjectIds.length !== requestedIds.length || requiredSubjectIds.some((id, i) => id !== requestedIds[i])) {
-      throw fail(422, "SUBJECT_SET_MISMATCH", "Submit a score for every subject in the database, with no duplicates.");
+      throw fail(422, "SUBJECT_SET_MISMATCH", "Submit a score for every subject offered by this class, with no duplicates.");
     }
 
     const [existing] = await conn.query(
@@ -243,7 +250,7 @@ async function getStudentResults(classId, studentId, sessionId, termId) {
 }
 
 async function getClassStandings(classId, sessionId, termId) {
-  const [required] = await db.query("SELECT COUNT(*) count FROM subjects");
+  const [required] = await db.query("SELECT COUNT(*) count FROM subject_classes WHERE class_id=?", [classId]);
   const subjectCount = Number(required[0].count);
   if (!subjectCount) return { classId, sessionId, termId, requiredSubjectCount: 0, standings: [] };
   const [rows] = await db.query(
@@ -252,6 +259,7 @@ async function getClassStandings(classId, sessionId, termId) {
             COUNT(DISTINCT rs.subject_id) completed_subject_count
      FROM student_results sr JOIN students st ON st.student_id=sr.student_id
      JOIN result_subjects rs ON rs.result_id=sr.result_id
+     JOIN subject_classes sc ON sc.subject_id=rs.subject_id AND sc.class_id=sr.class_id
      WHERE sr.class_id=? AND sr.session_id=? AND sr.term_id=?
      GROUP BY st.student_id,st.admission_number,st.first_name,st.middle_name,st.last_name,
               sr.result_id,sr.total_score,sr.average_score,sr.grade,sr.gpa,sr.class_position

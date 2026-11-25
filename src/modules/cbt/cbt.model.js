@@ -8,9 +8,84 @@ async function listClasses() {
   return rows;
 }
 
-async function listSubjects() {
-  const [rows] = await db.query("SELECT subject_id,subject_name,subject_code FROM subjects ORDER BY subject_name");
-  return rows;
+function normalizeClassIds(raw) {
+  if (raw === undefined || raw === null || raw === "") return [];
+  const values = Array.isArray(raw) ? raw : String(raw).split(",");
+  const ids = [...new Set(values.map(Number))];
+  if (!ids.length || ids.some((id) => !Number.isSafeInteger(id) || id < 1)) {
+    throw httpError(422, "classIds must contain positive integer class IDs.", "INVALID_CLASSES");
+  }
+  return ids;
+}
+
+async function listSubjects(filters = {}) {
+  const classIds = normalizeClassIds(filters.classIds ?? filters.classId);
+  const [rows] = await db.query(
+    `SELECT s.subject_id,s.subject_name,s.subject_code,
+            GROUP_CONCAT(DISTINCT sc.class_id ORDER BY sc.class_id) class_ids,
+            GROUP_CONCAT(DISTINCT c.class_name ORDER BY c.class_name SEPARATOR ', ') class_names
+     FROM subjects s
+     LEFT JOIN subject_classes sc ON sc.subject_id=s.subject_id
+     LEFT JOIN classes c ON c.class_id=sc.class_id
+     GROUP BY s.subject_id,s.subject_name,s.subject_code
+     ${classIds.length ? `HAVING COUNT(DISTINCT CASE WHEN sc.class_id IN (${classIds.map(() => "?").join(",")}) THEN sc.class_id END)=?` : ""}
+     ORDER BY s.subject_name`,
+    classIds.length ? [...classIds, classIds.length] : []
+  );
+  return rows.map((row) => ({
+    ...row,
+    class_ids: row.class_ids ? row.class_ids.split(",").map(Number) : [],
+  }));
+}
+
+async function setSubjectClasses(subjectId, rawClassIds) {
+  const id = Number(subjectId);
+  if (!Number.isSafeInteger(id) || id < 1) throw httpError(422, "subjectId must be a positive integer.", "INVALID_SUBJECT");
+  const classIds = normalizeClassIds(rawClassIds);
+  if (!classIds.length) throw httpError(422, "Select at least one class for this subject.", "INVALID_CLASSES");
+  return db.withTransaction(async (conn) => {
+    const [subjects] = await conn.query("SELECT subject_id FROM subjects WHERE subject_id=? FOR UPDATE", [id]);
+    if (!subjects.length) throw httpError(404, "Subject not found.", "SUBJECT_NOT_FOUND");
+    const [classes] = await conn.query(`SELECT class_id FROM classes WHERE class_id IN (${classIds.map(() => "?").join(",")})`, classIds);
+    if (classes.length !== classIds.length) throw httpError(422, "One or more selected classes do not exist.", "INVALID_CLASSES");
+    await conn.query("DELETE FROM subject_classes WHERE subject_id=?", [id]);
+    for (const classId of classIds) await conn.query("INSERT INTO subject_classes(subject_id,class_id) VALUES(?,?)", [id, classId]);
+    return { subjectId: id, classIds };
+  });
+}
+
+async function createSubject(input = {}) {
+  const subjectName = String(input.subjectName ?? input.subject_name ?? "").trim();
+  const subjectCode = String(input.subjectCode ?? input.subject_code ?? "").trim() || null;
+  const syllabus = String(input.syllabus ?? "").trim() || null;
+  const classIds = normalizeClassIds(input.classIds ?? input.class_ids);
+  if (!subjectName || subjectName.length > 100) throw httpError(422, "subjectName is required and must be 100 characters or fewer.", "INVALID_SUBJECT");
+  if (subjectCode && subjectCode.length > 20) throw httpError(422, "subjectCode must be 20 characters or fewer.", "INVALID_SUBJECT");
+  if (!classIds.length) throw httpError(422, "Select at least one class for this subject.", "INVALID_CLASSES");
+
+  try {
+    return await db.withTransaction(async (conn) => {
+      const [classes] = await conn.query(`SELECT class_id FROM classes WHERE class_id IN (${classIds.map(() => "?").join(",")})`, classIds);
+      if (classes.length !== classIds.length) throw httpError(422, "One or more selected classes do not exist.", "INVALID_CLASSES");
+      const [insert] = await conn.query("INSERT INTO subjects(subject_name,subject_code,syllabus) VALUES(?,?,?)", [subjectName, subjectCode, syllabus]);
+      for (const classId of classIds) await conn.query("INSERT INTO subject_classes(subject_id,class_id) VALUES(?,?)", [insert.insertId, classId]);
+      return { subjectId: insert.insertId, subjectName, subjectCode, syllabus, classIds };
+    });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") throw httpError(409, "A subject with this name or code already exists.", "SUBJECT_EXISTS");
+    throw error;
+  }
+}
+
+async function validateSubjectClasses(conn, subjectId, classIds) {
+  const [rows] = await conn.query(
+    `SELECT class_id FROM subject_classes WHERE subject_id=? AND class_id IN (${classIds.map(() => "?").join(",")})`,
+    [subjectId, ...classIds]
+  );
+  if (rows.length !== classIds.length) {
+    const available = new Set(rows.map((row) => Number(row.class_id)));
+    throw httpError(422, "The selected subject is not offered by every class assigned to this exam.", "SUBJECT_NOT_OFFERED_FOR_CLASS");
+  }
 }
 
 async function resolveCandidate(admissionNumber) {
@@ -95,7 +170,7 @@ async function listAdminExams(filters = {}) {
       params.push(filters[key]);
     }
   }
-  const [rows] = await db.query(`SELECT e.*,c.class_name,s.subject_name,se.session_name,t.term_name,(SELECT COUNT(*) FROM cbt_questions q WHERE q.exam_id=e.exam_id AND q.version=e.current_version) question_count,(SELECT GROUP_CONCAT(ec.class_id ORDER BY ec.class_id) FROM cbt_exam_classes ec WHERE ec.exam_id=e.exam_id) assigned_class_ids,(SELECT GROUP_CONCAT(ac.class_name ORDER BY ac.class_name SEPARATOR ', ') FROM cbt_exam_classes ec JOIN classes ac ON ac.class_id=ec.class_id WHERE ec.exam_id=e.exam_id) assigned_class_names FROM cbt_exams e JOIN classes c ON c.class_id=e.class_id JOIN subjects s ON s.subject_id=e.subject_id LEFT JOIN sessions se ON se.session_id=e.session_id LEFT JOIN terms t ON t.term_id=e.term_id ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY e.updated_at DESC LIMIT 200`, params);
+  const [rows] = await db.query(`SELECT e.*,e.exam_id,e.subject_id,s.subject_name,c.class_name,se.session_name,t.term_name,(SELECT COUNT(*) FROM cbt_questions q WHERE q.exam_id=e.exam_id AND q.version=e.current_version) question_count,(SELECT GROUP_CONCAT(ec.class_id ORDER BY ec.class_id) FROM cbt_exam_classes ec WHERE ec.exam_id=e.exam_id) assigned_class_ids,(SELECT GROUP_CONCAT(ac.class_name ORDER BY ac.class_name SEPARATOR ', ') FROM cbt_exam_classes ec JOIN classes ac ON ac.class_id=ec.class_id WHERE ec.exam_id=e.exam_id) assigned_class_names FROM cbt_exams e JOIN classes c ON c.class_id=e.class_id JOIN subjects s ON s.subject_id=e.subject_id LEFT JOIN sessions se ON se.session_id=e.session_id LEFT JOIN terms t ON t.term_id=e.term_id ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY e.updated_at DESC LIMIT 200`, params);
   return rows.map((row) => ({
     ...row,
     class_ids: row.assigned_class_ids ? row.assigned_class_ids.split(",").map(Number) : [row.class_id],
@@ -113,6 +188,7 @@ async function getAdminExam(examId) {
 async function createExam(input, adminId) {
   const exam = validateExam(input);
   return db.withTransaction(async (conn) => {
+    await validateSubjectClasses(conn, exam.subjectId, exam.classIds);
     const [result] = await conn.query(`INSERT INTO cbt_exams(title,class_id,subject_id,session_id,term_id,duration_seconds,available_from,available_until,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?)`, [String(exam.title || `${exam.className || "CBT"} ${exam.subjectName || "Exam"}`).trim().slice(0,180), exam.classId, exam.subjectId, exam.sessionId || null, exam.termId || null, exam.duration, exam.from, exam.until, adminId, adminId]);
     await replaceExamClasses(conn, result.insertId, exam.classIds);
     await conn.query("INSERT INTO cbt_exam_versions(exam_id,version) VALUES(?,1)", [result.insertId]);
@@ -128,6 +204,7 @@ async function updateExam(examId, input, adminId) {
     const [rows] = await conn.query("SELECT status,current_version FROM cbt_exams WHERE exam_id=? FOR UPDATE", [examId]);
     if (!rows.length) throw httpError(404, "Exam not found.", "EXAM_NOT_FOUND");
     if (rows[0].status !== "draft") throw httpError(409, "Only draft exams can be edited.", "EXAM_IMMUTABLE");
+    await validateSubjectClasses(conn, exam.subjectId, exam.classIds);
     await conn.query("UPDATE cbt_exams SET title=?,class_id=?,subject_id=?,session_id=?,term_id=?,duration_seconds=?,available_from=?,available_until=?,updated_by=? WHERE exam_id=?", [String(exam.title || "CBT Exam").trim().slice(0,180), exam.classId, exam.subjectId, exam.sessionId || null, exam.termId || null, exam.duration, exam.from, exam.until, adminId, examId]);
     await replaceExamClasses(conn, examId, exam.classIds);
     await replaceQuestions(conn, examId, rows[0].current_version, exam.questions);
@@ -142,8 +219,10 @@ async function setExamStatus(examId, adminId, action) {
     if (!exam) throw httpError(404, "Exam not found.", "EXAM_NOT_FOUND");
     if (action === "publish") {
       if (exam.status !== "draft") throw httpError(409, "Only draft exams can be published.", "INVALID_EXAM_STATE");
-      const [assignedClassCount] = await conn.query("SELECT COUNT(*) class_count FROM cbt_exam_classes WHERE exam_id=?", [examId]);
-      if (Number(assignedClassCount[0].class_count) < 1) throw httpError(422, "Assign the exam to at least one class before publishing.", "NO_ASSIGNED_CLASSES");
+      const [assignedClasses] = await conn.query("SELECT class_id FROM cbt_exam_classes WHERE exam_id=?", [examId]);
+      const assignedClassCount = assignedClasses.length;
+      if (assignedClassCount < 1) throw httpError(422, "Assign the exam to at least one class before publishing.", "NO_ASSIGNED_CLASSES");
+      await validateSubjectClasses(conn, exam.subject_id, assignedClasses.map((row) => Number(row.class_id)));
       const [counts] = await conn.query("SELECT COUNT(DISTINCT q.question_id) question_count,COUNT(o.option_id) option_count,SUM(o.is_correct) correct_count FROM cbt_questions q JOIN cbt_options o ON o.question_id=q.question_id WHERE q.exam_id=? AND q.version=?", [examId, exam.current_version]);
       // mysql2 can return SUM() as a string even when COUNT() is numeric.
       // Normalize aggregate values before comparing so valid exams can publish.
@@ -181,7 +260,7 @@ async function startAttempt(studentId, examId) {
     const [attemptNumbers] = await conn.query("SELECT COALESCE(MAX(attempt_number),0)+1 next_attempt_number FROM cbt_attempts WHERE student_id=? AND exam_id=?", [studentId, examId]);
     const attemptNumber = Number(attemptNumbers[0].next_attempt_number);
     const [q] = await conn.query("SELECT COUNT(*) count FROM cbt_questions WHERE exam_id=? AND version=?", [examId, exams[0].current_version]);
-    const [insert] = await conn.query(`INSERT INTO cbt_attempts(student_id,exam_id,version,attempt_number,started_at,expires_at,max_score,last_activity_at) VALUES(?,?,?,?,${nowSql},DATE_ADD(${nowSql},INTERVAL ? SECOND),?,${nowSql})`, [studentId, examId, exams[0].current_version, attemptNumber, exams[0].duration_seconds, q[0].count]);
+    const [insert] = await conn.query(`INSERT INTO cbt_attempts(student_id,exam_id,class_id,version,attempt_number,started_at,expires_at,max_score,last_activity_at) VALUES(?,?,?,?,?,${nowSql},DATE_ADD(${nowSql},INTERVAL ? SECOND),?,${nowSql})`, [studentId, examId, students[0].class_id, exams[0].current_version, attemptNumber, exams[0].duration_seconds, q[0].count]);
     await conn.query("INSERT INTO cbt_audit_events(actor_type,actor_id,exam_id,attempt_id,event_type) VALUES('student',?,?,?, 'attempt_started')", [studentId, examId, insert.insertId]);
     return insert.insertId;
   }); } catch (error) {
@@ -191,7 +270,7 @@ async function startAttempt(studentId, examId) {
 }
 
 async function getAttempt(studentId, attemptId, finalizeExpired = true) {
-  const [rows] = await db.query("SELECT a.*,e.title,e.class_id,e.subject_id,c.class_name,s.subject_name,(a.expires_at<=UTC_TIMESTAMP()) expired FROM cbt_attempts a JOIN cbt_exams e ON e.exam_id=a.exam_id JOIN students st ON st.student_id=a.student_id JOIN classes c ON c.class_id=st.class_id JOIN subjects s ON s.subject_id=e.subject_id WHERE a.attempt_id=? AND a.student_id=?", [attemptId, studentId]);
+  const [rows] = await db.query("SELECT a.*,e.title,e.class_id exam_class_id,e.subject_id,c.class_name,s.subject_name,(a.expires_at<=UTC_TIMESTAMP()) expired FROM cbt_attempts a JOIN cbt_exams e ON e.exam_id=a.exam_id JOIN classes c ON c.class_id=a.class_id JOIN subjects s ON s.subject_id=e.subject_id WHERE a.attempt_id=? AND a.student_id=?", [attemptId, studentId]);
   if (!rows.length) throw httpError(404, "Attempt not found.", "ATTEMPT_NOT_FOUND");
   let attempt = rows[0];
   if (attempt.status === "voided") throw httpError(409, "This attempt was reset by an administrator. Refresh the exam list to start a new attempt.", "ATTEMPT_RESET");
@@ -257,9 +336,58 @@ async function submitAttempt(studentId, attemptId, reason = "student") {
   });
 }
 
-async function listAttempts(examId) {
-  const [rows] = await db.query("SELECT a.attempt_id,a.attempt_number,a.student_id,st.admission_number,st.first_name,st.last_name,a.status,a.started_at,a.expires_at,a.submitted_at,a.score,a.max_score FROM cbt_attempts a JOIN students st ON st.student_id=a.student_id WHERE a.exam_id=? ORDER BY a.started_at DESC LIMIT 500", [examId]);
-  return rows;
+async function listAttempts(filters = {}) {
+  const { examId, subjectId, classId, search } = filters;
+  const where = [];
+  const params = [];
+  for (const [value, field, label] of [
+    [examId, "a.exam_id", "examId"],
+    [subjectId, "e.subject_id", "subjectId"],
+    [classId, "a.class_id", "classId"],
+  ]) {
+    if (value !== undefined && value !== "") {
+      const parsed = Number(value);
+      if (!Number.isSafeInteger(parsed) || parsed < 1) throw httpError(422, `${label} must be a positive integer.`, "INVALID_FILTER");
+      where.push(`${field}=?`);
+      params.push(parsed);
+    }
+  }
+  const page = filters.page === undefined ? 1 : Number(filters.page);
+  const pageSize = filters.pageSize === undefined ? 25 : Number(filters.pageSize);
+  if (!Number.isSafeInteger(page) || page < 1) throw httpError(422, "page must be a positive integer.", "INVALID_PAGINATION");
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw httpError(422, "pageSize must be between 1 and 100.", "INVALID_PAGINATION");
+  if (search !== undefined && String(search).trim()) {
+    const term = String(search).trim().slice(0, 100);
+    where.push("(st.admission_number LIKE ? OR st.first_name LIKE ? OR st.middle_name LIKE ? OR st.last_name LIKE ? OR CONCAT_WS(' ',st.first_name,st.middle_name,st.last_name) LIKE ?)");
+    const searchTerm = `%${term}%`;
+    params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+  const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const [countRows] = await db.query(
+    `SELECT COUNT(*) total FROM cbt_attempts a JOIN students st ON st.student_id=a.student_id JOIN cbt_exams e ON e.exam_id=a.exam_id ${clause}`,
+    params
+  );
+  const total = Number(countRows[0].total);
+  const offset = (page - 1) * pageSize;
+  const [rows] = await db.query(
+    `SELECT a.attempt_id,a.attempt_number,a.exam_id,e.subject_id,s.subject_name,
+            a.student_id,st.admission_number,st.first_name,st.middle_name,st.last_name,
+            CONCAT_WS(' ',st.first_name,NULLIF(st.middle_name,''),st.last_name) student_name,
+            a.class_id,c.class_name,a.status,a.score,a.max_score,a.submitted_at,
+            a.started_at,a.expires_at
+     FROM cbt_attempts a
+     JOIN cbt_exams e ON e.exam_id=a.exam_id
+     JOIN subjects s ON s.subject_id=e.subject_id
+     JOIN students st ON st.student_id=a.student_id
+     JOIN classes c ON c.class_id=a.class_id
+     ${clause}
+     ORDER BY a.started_at DESC,a.attempt_id DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, offset]
+  );
+  return {
+    attempts: rows,
+    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+  };
 }
 
 async function sweepExpiredAttempts(batchSize = 500) {
@@ -355,13 +483,13 @@ async function getStudentCbtResults(studentId) {
     `SELECT a.attempt_id,a.exam_id,a.version,a.attempt_number,a.status,a.started_at,a.expires_at,
             a.submitted_at,a.submission_reason,a.score,a.max_score,
             e.title,e.duration_seconds,e.session_id,e.term_id,
-            c.class_name,s.subject_name,se.session_name,t.term_name,
+            a.class_id,c.class_name,s.subject_name,se.session_name,t.term_name,
             (SELECT COUNT(*) FROM cbt_questions q WHERE q.exam_id=a.exam_id AND q.version=a.version) question_count,
             (SELECT COUNT(*) FROM cbt_attempt_answers aa WHERE aa.attempt_id=a.attempt_id AND aa.selected_option_id IS NOT NULL) answered_count
      FROM cbt_attempts a
      JOIN cbt_exams e ON e.exam_id=a.exam_id
      JOIN students st ON st.student_id=a.student_id
-     JOIN classes c ON c.class_id=st.class_id
+     JOIN classes c ON c.class_id=a.class_id
      JOIN subjects s ON s.subject_id=e.subject_id
      LEFT JOIN sessions se ON se.session_id=e.session_id
      LEFT JOIN terms t ON t.term_id=e.term_id
@@ -391,11 +519,11 @@ async function getAttemptReview(attemptId) {
     `SELECT a.attempt_id,a.student_id,a.exam_id,a.version,a.attempt_number,a.status,a.started_at,a.expires_at,
             a.submitted_at,a.submission_reason,a.score,a.max_score,
             st.admission_number,st.first_name,st.middle_name,st.last_name,
-            e.title,e.duration_seconds,c.class_name,s.subject_name,se.session_name,t.term_name
+            e.title,e.duration_seconds,a.class_id,c.class_name,s.subject_name,se.session_name,t.term_name
      FROM cbt_attempts a
      JOIN students st ON st.student_id=a.student_id
      JOIN cbt_exams e ON e.exam_id=a.exam_id
-     JOIN classes c ON c.class_id=st.class_id
+     JOIN classes c ON c.class_id=a.class_id
      JOIN subjects s ON s.subject_id=e.subject_id
      LEFT JOIN sessions se ON se.session_id=e.session_id
      LEFT JOIN terms t ON t.term_id=e.term_id
@@ -478,4 +606,4 @@ async function getAttemptReview(attemptId) {
   };
 }
 
-module.exports = { validateExam, listClasses, listSubjects, resolveCandidate, listAdminExams, getAdminExam, createExam, updateExam, setExamStatus, listStudentExams, startAttempt, getAttempt, saveAnswer, submitAttempt, listAttempts, sweepExpiredAttempts, resetAttempt, listCbtStudents, getStudentCbtResults, getAttemptReview, httpError };
+module.exports = { validateExam, listClasses, listSubjects, createSubject, setSubjectClasses, resolveCandidate, listAdminExams, getAdminExam, createExam, updateExam, setExamStatus, listStudentExams, startAttempt, getAttempt, saveAnswer, submitAttempt, listAttempts, sweepExpiredAttempts, resetAttempt, listCbtStudents, getStudentCbtResults, getAttemptReview, httpError };

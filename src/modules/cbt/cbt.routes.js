@@ -24,6 +24,8 @@ router.get("/student/cbt/subjects", controller.listSubjects);
 // Keep CBT lookups public above this line; exam management remains admin-only.
 router.use("/admin/cbt", requireAuth, verifyRole("admin"));
 router.get("/admin/cbt/subjects", controller.listSubjects);
+router.post("/admin/cbt/subjects", controller.createSubject);
+router.put("/admin/cbt/subjects/:subjectId/classes", controller.setSubjectClasses);
 router.get("/admin/cbt/exams", controller.listAdminExams);
 router.post("/admin/cbt/exams", idempotency(), controller.createExam);
 router.get("/admin/cbt/exams/:examId", controller.getAdminExam);
@@ -31,6 +33,7 @@ router.put("/admin/cbt/exams/:examId", controller.updateExam);
 router.post("/admin/cbt/exams/:examId/publish", controller.publishExam);
 router.post("/admin/cbt/exams/:examId/close", controller.closeExam);
 router.delete("/admin/cbt/exams/:examId", controller.archiveExam);
+router.get("/admin/cbt/attempts", controller.listAttempts);
 router.get("/admin/cbt/exams/:examId/attempts", controller.listAttempts);
 router.get("/admin/cbt/students", controller.listCbtStudents);
 router.get("/admin/cbt/students/:studentId/results", controller.getStudentCbtResults);
@@ -40,6 +43,10 @@ router.post("/admin/cbt/attempts/:attemptId/reset", controller.resetAttempt);
 // API proxy aliases used by the admin frontend.
 router.use("/api-proxy/admin/cbt", requireAuth, verifyRole("admin"));
 router.get("/api-proxy/admin/cbt/subjects", controller.listSubjects);
+router.post("/api-proxy/admin/cbt/subjects", controller.createSubject);
+router.put("/api-proxy/admin/cbt/subjects/:subjectId/classes", controller.setSubjectClasses);
+router.get("/api-proxy/admin/cbt/attempts", controller.listAttempts);
+router.get("/api-proxy/admin/cbt/exams/:examId/attempts", controller.listAttempts);
 router.get("/api-proxy/admin/cbt/students", controller.listCbtStudents);
 router.get("/api-proxy/admin/cbt/students/:studentId/results", controller.getStudentCbtResults);
 router.get("/api-proxy/admin/cbt/attempts/:attemptId/review", controller.getAttemptReview);

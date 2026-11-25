@@ -63,7 +63,7 @@ async function main() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS cbt_attempts (
       attempt_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, student_id INT NOT NULL,
-      exam_id BIGINT UNSIGNED NOT NULL, version INT NOT NULL, attempt_number INT NOT NULL DEFAULT 1,
+      exam_id BIGINT UNSIGNED NOT NULL, class_id INT NOT NULL, version INT NOT NULL, attempt_number INT NOT NULL DEFAULT 1,
       status ENUM('in_progress','submitted','auto_submitted','voided') NOT NULL DEFAULT 'in_progress',
       started_at DATETIME NOT NULL, expires_at DATETIME NOT NULL, submitted_at DATETIME NULL,
       submission_reason ENUM('student','time_limit') NULL, score INT NULL, max_score INT NOT NULL,
@@ -71,6 +71,7 @@ async function main() {
       PRIMARY KEY(attempt_id), UNIQUE KEY uq_cbt_attempt_number(student_id,exam_id,attempt_number),
       KEY idx_cbt_attempt_exam_status(exam_id,status),
       CONSTRAINT fk_cbt_attempt_student FOREIGN KEY(student_id) REFERENCES students(student_id),
+      CONSTRAINT fk_cbt_attempt_class FOREIGN KEY(class_id) REFERENCES classes(class_id),
       CONSTRAINT fk_cbt_attempt_version FOREIGN KEY(exam_id,version) REFERENCES cbt_exam_versions(exam_id,version)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS cbt_attempt_answers (
@@ -98,6 +99,23 @@ async function main() {
       `INSERT IGNORE INTO cbt_exam_classes(exam_id,class_id)
        SELECT exam_id,class_id FROM cbt_exams`
     );
+
+    // Keep the student's class as it was when the attempt started, even if
+    // the student is moved to another class later.
+    const [attemptClassColumn] = await db.query("SHOW COLUMNS FROM cbt_attempts LIKE 'class_id'");
+    if (!attemptClassColumn.length) {
+      await db.query("ALTER TABLE cbt_attempts ADD COLUMN class_id INT NULL AFTER exam_id");
+    }
+    await db.query(
+      "UPDATE cbt_attempts a JOIN students st ON st.student_id=a.student_id SET a.class_id=st.class_id WHERE a.class_id IS NULL"
+    );
+    await db.query("ALTER TABLE cbt_attempts MODIFY COLUMN class_id INT NOT NULL");
+    const [attemptClassForeignKey] = await db.query(
+      "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cbt_attempts' AND CONSTRAINT_NAME='fk_cbt_attempt_class'"
+    );
+    if (!attemptClassForeignKey.length) {
+      await db.query("ALTER TABLE cbt_attempts ADD CONSTRAINT fk_cbt_attempt_class FOREIGN KEY(class_id) REFERENCES classes(class_id)");
+    }
 
     // Upgrade databases created by the earlier one-attempt schema. Existing
     // attempts receive attempt_number=1; the new index permits audited retries.

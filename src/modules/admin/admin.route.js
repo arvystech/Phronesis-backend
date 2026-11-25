@@ -24,8 +24,13 @@ router.patch("/admin/classes/:classId/password", classesController.updateClassPa
 router.patch("/api-proxy/admin/classes/:classId/password", requireAuth, verifyRole("admin"), classesController.updateClassPassword);
 router.get("/admin/cbt/classes", classesController.listClasses);
 router.get("/api-proxy/admin/cbt/classes", requireAuth, verifyRole("admin"), classesController.listClasses);
-router.get("/subjects", requireAuth, verifyRole("admin"), require("../cbt/cbt.controller").listSubjects);
-router.get("/api-proxy/subjects", requireAuth, verifyRole("admin"), require("../cbt/cbt.controller").listSubjects);
+const cbtController = require("../cbt/cbt.controller");
+router.get("/subjects", requireAuth, verifyRole("admin"), cbtController.listSubjects);
+router.post("/subjects", requireAuth, verifyRole("admin"), cbtController.createSubject);
+router.put("/subjects/:subjectId/classes", requireAuth, verifyRole("admin"), cbtController.setSubjectClasses);
+router.get("/api-proxy/subjects", requireAuth, verifyRole("admin"), cbtController.listSubjects);
+router.post("/api-proxy/subjects", requireAuth, verifyRole("admin"), cbtController.createSubject);
+router.put("/api-proxy/subjects/:subjectId/classes", requireAuth, verifyRole("admin"), cbtController.setSubjectClasses);
 
 router.get("/admin/staff/:id", getDetailById);
 router.get("/admin/staff/:id/attendance", getAttendanceById);
